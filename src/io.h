@@ -9,6 +9,6 @@
 using namespace std;
 using namespace cnn;
 
-vector<Sentence> ReadMorphText(const string& filename, Dict& vocab);
-void Serialize(const Dict& dict, const MorphLM& translator, Model& cnn_model);
-void Deserialize(const string& filename, Dict& dict, MorphLM& lm, Model& cnn_model);
+vector<Sentence> ReadMorphText(const string& filename, Dict& word_vocab, Dict& root_vocab, Dict& affix_vocab, Dict& char_vocab);
+void Serialize(const Dict& word_vocab, const Dict& root_vocab, const Dict& affix_vocab, const Dict& char_vocab, const MorphLM& translator, Model& cnn_model);
+void Deserialize(const string& filename, Dict& word_vocab, Dict& root_vocab, Dict& affix_vocab, Dict& char_vocab, MorphLM& lm, Model& cnn_model);

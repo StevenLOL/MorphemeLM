@@ -7,7 +7,7 @@ LIBS=-L$(CNN_BUILD_DIR)/cnn/
 FINAL=-lcnn -lboost_regex -lboost_serialization -lboost_program_options -lrt -lpthread
 #FINAL=-lcnn -lcnncuda -lboost_regex -lboost_serialization -lboost_program_options -lcuda -lcudart -lcublas
 CFLAGS=-std=c++11 -Ofast -g -march=native -pipe
-#CFLAGS=-std=c++11 -Wall -pedantic -O0 -g -pipe
+#CFLAGS=-std=c++11 -Wall -pedantic -O0 -g -pipe -DDEBUG
 BINDIR=bin
 OBJDIR=obj
 SRCDIR=src
@@ -25,7 +25,7 @@ $(OBJDIR)/%.o: $(SRCDIR)/%.cc
 	$(CC) $(CFLAGS) $(INCS) -c $< -o $@
 	$(CC) -MM -MP -MT "$@" $(CFLAGS) $(INCS) $< > $(OBJDIR)/$*.d
 
-$(BINDIR)/train: $(addprefix $(OBJDIR)/, train.o io.o morphlm.o utils.o)
+$(BINDIR)/train: $(addprefix $(OBJDIR)/, train.o mlp.o io.o morphlm.o utils.o)
 	$(CC) $(CFLAGS) $(LIBS) $(INCS) $^ -o $@ $(FINAL)
 
 $(BINDIR)/sample: $(addprefix $(OBJDIR)/, sample.o io.o translator.o tree_encoder.o encoder.o attention.o output.o utils.o syntax_tree.o treelstm.o)

@@ -13,10 +13,23 @@ using namespace std;
 using namespace cnn;
 
 typedef int WordId;
-typedef vector<WordId> Sentence;
 
-inline unsigned int UTF8Len(unsigned char x);
-inline unsigned int UTF8StringLen(const string& x);
+struct Analysis {
+  WordId root;
+  vector<WordId> affixes;
+};
+
+struct Sentence {
+  vector<WordId> words;
+  vector<vector<Analysis>> analyses;
+  vector<vector<float>> analysis_probs;
+  vector<vector<WordId>> chars;
+
+  unsigned size() const;
+};
+
+unsigned int UTF8Len(unsigned char x);
+unsigned int UTF8StringLen(const string& x);
 
 vector<string> tokenize(string input, string delimiter, unsigned max_times);
 vector<string> tokenize(string input, string delimiter);
