@@ -13,7 +13,7 @@ OBJDIR=obj
 SRCDIR=src
 
 .PHONY: clean
-all: make_dirs $(BINDIR)/train $(BINDIR)/sample $(BINDIR)/loss $(BINDIR)/predict
+all: make_dirs $(BINDIR)/train $(BINDIR)/sample $(BINDIR)/loss
 
 make_dirs:
 	mkdir -p $(OBJDIR)
@@ -28,13 +28,10 @@ $(OBJDIR)/%.o: $(SRCDIR)/%.cc
 $(BINDIR)/train: $(addprefix $(OBJDIR)/, train.o mlp.o io.o morphlm.o utils.o)
 	$(CC) $(CFLAGS) $(LIBS) $(INCS) $^ -o $@ $(FINAL)
 
-$(BINDIR)/sample: $(addprefix $(OBJDIR)/, sample.o io.o translator.o tree_encoder.o encoder.o attention.o output.o utils.o syntax_tree.o treelstm.o)
+$(BINDIR)/sample: $(addprefix $(OBJDIR)/, sample.o mlp.o io.o morphlm.o utils.o)
 	$(CC) $(CFLAGS) $(LIBS) $(INCS) $^ -o $@ $(FINAL)
 
-$(BINDIR)/loss: $(addprefix $(OBJDIR)/, loss.o io.o translator.o tree_encoder.o encoder.o attention.o output.o syntax_tree.o treelstm.o utils.o)
-	$(CC) $(CFLAGS) $(LIBS) $(INCS) $^ -o $@ $(FINAL)
-
-$(BINDIR)/predict: $(addprefix $(OBJDIR)/, predict.o io.o translator.o tree_encoder.o encoder.o attention.o output.o syntax_tree.o treelstm.o kbestlist.o utils.o)
+$(BINDIR)/loss: $(addprefix $(OBJDIR)/, loss.o mlp.o io.o morphlm.o utils.o)
 	$(CC) $(CFLAGS) $(LIBS) $(INCS) $^ -o $@ $(FINAL)
 
 clean:

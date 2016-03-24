@@ -73,6 +73,8 @@ public:
   Expression ComputeMorphemeLoss(Expression context, const vector<Analysis>& refs, const vector<float>& probs, ComputationGraph& cg);
   Expression ComputeCharLoss(Expression context, const vector<WordId>& ref, ComputationGraph& cg);
 
+  Sentence Sample(unsigned max_length);
+
 private:
   MorphLMConfig config;
 

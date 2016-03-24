@@ -220,6 +220,11 @@ Expression MorphLM::ComputeCharLoss(Expression context, const vector<WordId>& re
   return sum(losses);
 }
 
+Sentence MorphLM::Sample(unsigned max_length) {
+  Sentence sentence;
+  return sentence;
+}
+
 vector<Expression> MakeLSTMInitialState(Expression c, unsigned lstm_dim, unsigned lstm_layer_count) {
   vector<Expression> hinit(lstm_layer_count * 2);
   for (unsigned i = 0; i < lstm_layer_count; ++i) {

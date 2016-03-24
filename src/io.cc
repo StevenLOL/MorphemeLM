@@ -1,6 +1,16 @@
 #include <fstream>
 #include "io.h"
 
+Sentence ReadMorphSentence(ifstream& f, Dict& word_vocab, Dict& root_vocab, Dict& affix_vocab, Dict& char_vocab) {
+  for (string line; getline(f, line);) {
+    line = strip(line);
+    if (line.length() == 0) {
+      break;
+    }
+  }
+  return Sentence();
+}
+
 vector<Sentence> ReadMorphText(const string& filename, Dict& word_vocab, Dict& root_vocab, Dict& affix_vocab, Dict& char_vocab) {
   vector<Sentence> corpus;
   Sentence current;

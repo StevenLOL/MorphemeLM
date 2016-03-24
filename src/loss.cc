@@ -17,6 +17,7 @@ int main(int argc, char** argv) {
   po::options_description desc("description");
   desc.add_options()
   ("model", po::value<string>()->required(), "model files, as output by train")
+  ("perp,p", "Show model perplexity instead of negative log loss")
   ("help", "Display this help message");
 
   po::positional_options_description positional_options;
@@ -33,40 +34,32 @@ int main(int argc, char** argv) {
   po::notify(vm);
 
   const string model_filename = vm["model"].as<string>();
+  const bool show_perp = vm.count("perp") > 0;
 
   Model cnn_model;
-  Translator translator;
-  vector<Dict*> dicts;
-  Deserialize(model_filename, dicts, translator, cnn_model);
-
-  Dict* source_vocab = dicts[0];
-  Dict* target_vocab = dicts[1];
-  Dict* label_vocab = translator.IsT2S() ? dicts[2] :  nullptr;
+  Dict word_vocab, root_vocab, affix_vocab, char_vocab;
+  MorphLM lm;
+  Deserialize(model_filename, word_vocab, root_vocab, affix_vocab, char_vocab, lm, cnn_model);
 
   string line;
   unsigned sentence_number = 0;
   cnn::real total_loss = 0;
   unsigned total_words = 0;
   while(getline(cin, line)) {
-    vector<string> parts = tokenize(line, "|||");
-    parts = strip(parts);
-
-    vector<cnn::real> losses;
-    TranslatorInput* source;
-    if (translator.IsT2S()) {
-      source = new SyntaxTree(parts[0], source_vocab, label_vocab);
-    }
-    else {
-      source = ReadSentence(parts[0], *source_vocab);
-    }
-    Sentence* target = ReadSentence(parts[1], *target_vocab); 
+    line = strip(line);
+    Sentence input; // = something (line)
 
     ComputationGraph cg;
-    Expression loss_expr = translator.BuildGraph(source, *target, cg);
+    Expression loss_expr = lm.BuildGraph(input, cg);
     cg.incremental_forward();
     cnn::real loss = as_scalar(loss_expr.value());
-    unsigned words = target->size() - 1;
-    cout << sentence_number << " ||| " << exp(loss / words) << endl;
+    unsigned words = input.size();
+    if (show_perp) {
+      cout << exp(loss / words) << endl;
+    }
+    else {
+      cout << loss;
+    }
     cout.flush();
 
     sentence_number++;
@@ -74,7 +67,12 @@ int main(int argc, char** argv) {
     total_words += words;
   }
 
-  cout << "Total ||| " << exp(total_loss / total_words) << endl;
+  if (show_perp) {
+    cout << "Total: " << exp(total_loss / total_words) << endl;
+  }
+  else {
+    cout << "Total: " << total_loss << endl;
+  }
 
   return 0;
 }
