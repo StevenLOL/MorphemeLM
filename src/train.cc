@@ -129,16 +129,17 @@ int main(int argc, char** argv) {
     config.root_vocab_size = root_vocab.size();
     config.affix_vocab_size = affix_vocab.size();
     config.char_vocab_size = char_vocab.size();
-    config.word_embedding_dim = 64;
-    config.root_embedding_dim = 64;
-    config.affix_embedding_dim = 64;
-    config.char_embedding_dim = 16;
-    config.model_chooser_hidden_dim = 16;
-    config.affix_lstm_init_hidden_dim = 64;
-    config.char_lstm_init_hidden_dim = 32;
-    config.main_lstm_dim = 64;
-    config.affix_lstm_dim = 64;
-    config.char_lstm_dim = 32;
+    config.word_embedding_dim = 128; // 3 32 128
+    config.root_embedding_dim = 128; // 3 32 128
+    config.affix_embedding_dim = 64; // 1 16 64
+    config.char_embedding_dim = 64; // 1 16 64
+    config.model_chooser_hidden_dim = 16; // 1 16 16
+    config.affix_lstm_init_hidden_dim = 128; // 1 16 128
+    config.char_lstm_init_hidden_dim = 64; // 1 16 64
+    config.main_lstm_dim = 256; // 6 64 256
+    config.affix_lstm_dim = 128; // 1 16 128
+    config.char_lstm_dim = 64; // 1 16 64
+    // Maybe only need 1 layer on input LSTMs
     lm = new MorphLM(cnn_model, config);
 
     word_vocab.Freeze();
