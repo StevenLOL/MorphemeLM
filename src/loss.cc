@@ -39,16 +39,15 @@ int main(int argc, char** argv) {
   Model cnn_model;
   Dict word_vocab, root_vocab, affix_vocab, char_vocab;
   MorphLM lm;
+  cerr << "Loading model from " << model_filename << "...";
   Deserialize(model_filename, word_vocab, root_vocab, affix_vocab, char_vocab, lm, cnn_model);
+  cerr << " Done!" << endl;
 
-  string line;
   unsigned sentence_number = 0;
   cnn::real total_loss = 0;
   unsigned total_words = 0;
-  while(getline(cin, line)) {
-    line = strip(line);
-    Sentence input; // = something (line)
-
+  Sentence input;
+  while(ReadMorphSentence(cin, word_vocab, root_vocab, affix_vocab, char_vocab, input)) {
     ComputationGraph cg;
     Expression loss_expr = lm.BuildGraph(input, cg);
     cg.incremental_forward();
@@ -58,7 +57,7 @@ int main(int argc, char** argv) {
       cout << exp(loss / words) << endl;
     }
     else {
-      cout << loss;
+      cout << loss << endl;
     }
     cout.flush();
 

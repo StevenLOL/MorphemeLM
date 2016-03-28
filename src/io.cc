@@ -1,14 +1,87 @@
 #include <fstream>
 #include "io.h"
 
-Sentence ReadMorphSentence(ifstream& f, Dict& word_vocab, Dict& root_vocab, Dict& affix_vocab, Dict& char_vocab) {
+void HandleMorphLine(const string& line, Dict& word_vocab, Dict& root_vocab, Dict& affix_vocab, Dict& char_vocab, Sentence& out) {
+  vector<string> pieces = tokenize(line, "\t");
+  assert (pieces.size() % 2 == 1);
+  assert (pieces.size() >= 3);
+
+  string& word = pieces[0];
+  out.words.push_back(word_vocab.Convert(word));
+  
+  out.analyses.push_back(vector<Analysis>());
+  out.analysis_probs.push_back(vector<float>());
+
+  for (unsigned i = 1; i < pieces.size(); i += 2) {
+    vector<string> morphemes = tokenize(pieces[i], "+");
+    assert (morphemes.size() >= 1);
+
+    string root = morphemes[0];
+    morphemes.erase(morphemes.begin());
+
+    if (root == "*UNKNOWN*") {
+      root = "UNK";
+    }
+
+    Analysis analysis;
+    analysis.root = root_vocab.Convert(root);
+    for (string& morpheme : morphemes) {
+      analysis.affixes.push_back(affix_vocab.Convert(morpheme));
+    }
+    analysis.affixes.push_back(affix_vocab.Convert("</w>"));
+    out.analyses.back().push_back(analysis);
+
+    float prob = atof(pieces[i + 1].c_str());
+    out.analysis_probs.back().push_back(prob);
+  }
+
+  out.chars.push_back(vector<WordId>());
+  unsigned i = 0;
+  while (i < word.length()) {
+    unsigned len = UTF8Len(word[i]);
+    string c = word.substr(i, len);
+    out.chars.back().push_back(char_vocab.Convert(c));
+    i += len;
+  }
+  out.chars.back().push_back(char_vocab.Convert("</w>"));
+  assert (i == word.length());
+}
+
+
+void EndMorphSentence(Dict& word_vocab, Dict& root_vocab, Dict& char_vocab, Sentence& out) {
+  out.words.push_back(word_vocab.Convert("</s>"));
+
+  Analysis eos_analysis = {root_vocab.Convert("</s>"), vector<WordId>()};
+  out.analyses.push_back(vector<Analysis>(1, eos_analysis));
+  out.analysis_probs.push_back(vector<float>(1, 1.0f));
+
+  out.chars.push_back(vector<WordId>(1, char_vocab.Convert("</s>")));
+
+  assert (out.words.size() == out.analyses.size());
+  assert (out.words.size() == out.analysis_probs.size());
+  assert (out.words.size() == out.chars.size());
+}
+
+bool ReadMorphSentence(istream& f, Dict& word_vocab, Dict& root_vocab, Dict& affix_vocab, Dict& char_vocab, Sentence& out) {
+  out.words.clear();
+  out.analyses.clear();
+  out.analysis_probs.clear();
+  out.chars.clear();
+
   for (string line; getline(f, line);) {
     line = strip(line);
     if (line.length() == 0) {
-      break;
+      EndMorphSentence(word_vocab, root_vocab, char_vocab, out);
+      return true;
     }
+    HandleMorphLine(line, word_vocab, root_vocab, affix_vocab, char_vocab, out);
   }
-  return Sentence();
+
+  if (out.size() > 0) {
+    EndMorphSentence(word_vocab, root_vocab, char_vocab, out);
+    return true;
+  }
+  return false;
 }
 
 vector<Sentence> ReadMorphText(const string& filename, Dict& word_vocab, Dict& root_vocab, Dict& affix_vocab, Dict& char_vocab) {
