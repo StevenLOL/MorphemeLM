@@ -92,7 +92,7 @@ Expression MorphLM::BuildGraph(const Sentence& sentence, ComputationGraph& cg) {
     Expression mode_log_probs = log_softmax(model_chooser.Feed(context));
     if (i == inputs.size() - 1) {
       assert (sentence.words[i] == 2); // </s>
-      Expression loss = -pick(mode_log_probs, 3);
+      Expression loss = -pick(mode_log_probs, (unsigned)0);
       losses.push_back(loss);
       break;
     }
@@ -107,9 +107,9 @@ Expression MorphLM::BuildGraph(const Sentence& sentence, ComputationGraph& cg) {
     // so log p(w | c) = logsumexp_M log p(w | c, m) + log p(m)
     // so total_loss = -logsumexp_M -mode_losses + mode_log_probs
     // = -logsumexp(mode_log_probs - mode_losses);
-    word_loss = pick(mode_log_probs, (unsigned)0) - word_loss;
-    morpheme_loss = pick(mode_log_probs, 1) - morpheme_loss;
-    char_loss = pick(mode_log_probs, 2) - char_loss;
+    word_loss = pick(mode_log_probs, 1) - word_loss;
+    morpheme_loss = pick(mode_log_probs, 2) - morpheme_loss;
+    char_loss = pick(mode_log_probs, 3) - char_loss;
 
     Expression total_loss = -logsumexp({word_loss, morpheme_loss, char_loss});
 
