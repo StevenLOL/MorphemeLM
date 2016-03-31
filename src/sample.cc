@@ -49,9 +49,14 @@ int main(int argc, char** argv) {
   assert (char_vocab.is_frozen());
 
   while (true) {
-    Sentence sample = lm.Sample(max_length);
+    ComputationGraph cg;
+    Sentence sample = lm.Sample(max_length, cg);
     vector<string> words;
     for (unsigned i = 0; i < sample.size(); ++i) {
+      for (unsigned j = 0; j < sample.chars[i].size(); ++j) {
+        cout << char_vocab.Convert(sample.chars[i][j]);
+      }
+      cout << " ";
     } 
     cout << boost::algorithm::join(words, " ") << endl;
     cout.flush();

@@ -106,4 +106,3 @@ float logsumexp(const vector<float>& v) {
   }
   return m + log(sum);
 }
-

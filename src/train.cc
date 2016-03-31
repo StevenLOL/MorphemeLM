@@ -69,6 +69,8 @@ int main(int argc, char** argv) {
   ("report_frequency,r", po::value<unsigned>()->default_value(100), "Show the training loss of every r examples")
   ("dev_frequency,d", po::value<unsigned>()->default_value(10000), "Run the dev set every d examples. Save the model if the score is a new best")
   ("quiet,q", "Do not output model")
+  ("no_words,W", "Do not use word-level information")
+  ("no_morphology,M", "Do not use morpheme-level information")
   ("model", po::value<string>(), "Reload this model and continue learning");
 
   AddTrainerOptions(desc);
@@ -125,6 +127,8 @@ int main(int argc, char** argv) {
 
   if (!vm.count("model")) {
     MorphLMConfig config;
+    config.use_words = (vm.count("no_words") == 0);
+    config.use_morphology = (vm.count("no_morphology") == 0);
     config.word_vocab_size = word_vocab.size();
     config.root_vocab_size = root_vocab.size();
     config.affix_vocab_size = affix_vocab.size();

@@ -11,6 +11,9 @@ using namespace cnn;
 using namespace cnn::expr;
 
 struct MorphLMConfig {
+  bool use_words;
+  bool use_morphology;
+
   unsigned word_vocab_size;
   unsigned root_vocab_size;
   unsigned affix_vocab_size;
@@ -33,6 +36,9 @@ private:
   friend class boost::serialization::access;
   template<class Archive>
   void serialize(Archive& ar, const unsigned int) {
+    ar & use_words;
+    ar & use_morphology;
+
     ar & word_vocab_size;
     ar & root_vocab_size;
     ar & affix_vocab_size;
@@ -73,7 +79,8 @@ public:
   Expression ComputeMorphemeLoss(Expression context, const vector<Analysis>& refs, const vector<float>& probs, ComputationGraph& cg);
   Expression ComputeCharLoss(Expression context, const vector<WordId>& ref, ComputationGraph& cg);
 
-  Sentence Sample(unsigned max_length);
+  Sentence Sample(unsigned max_length, ComputationGraph& cg);
+  vector<WordId> SampleCharSequence(Expression context, unsigned max_length, ComputationGraph& cg);
 
 private:
   MorphLMConfig config;
@@ -115,14 +122,20 @@ private:
   void serialize(Archive& ar, const unsigned int) {
     ar & config;
 
-    ar & input_word_embeddings;
-    ar & input_root_embeddings;
-    ar & input_affix_embeddings;
+    if (config.use_words) {
+      ar & input_word_embeddings;
+    }
+    if (config.use_morphology) {
+      ar & input_root_embeddings;
+      ar & input_affix_embeddings;
+    }
     ar & input_char_embeddings;
 
     ar & input_char_lstm_init;
 
-    ar & input_affix_lstm;
+    if (config.use_morphology) {
+      ar & input_affix_lstm;
+    }
     ar & input_char_lstm;
 
     ar & main_lstm_init;
@@ -130,19 +143,29 @@ private:
     ar & main_lstm;
     ar & model_chooser;
 
-    ar & word_softmax;
-    ar & root_softmax;
-    ar & affix_softmax;
+    if (config.use_words) {
+      ar & word_softmax;
+    }
+    if (config.use_morphology) {
+      ar & root_softmax;
+      ar & affix_softmax;
+    }
     ar & char_softmax;
 
-    ar & output_root_embeddings;
-    ar & output_affix_embeddings;
+    if (config.use_morphology) {
+      ar & output_root_embeddings;
+      ar & output_affix_embeddings;
+    }
     ar & output_char_embeddings;
 
-    ar & output_affix_lstm_init;
+    if (config.use_morphology) {
+      ar & output_affix_lstm_init;
+    }
     ar & output_char_lstm_init;
 
-    ar & output_affix_lstm;
+    if (config.use_morphology) {
+      ar & output_affix_lstm;
+    }
     ar & output_char_lstm;
   }
 };

@@ -41,3 +41,31 @@ vector<string> strip(const vector<string>& input, bool removeEmpty = false);
 map<string, double> parse_feature_string(string input);
 
 float logsumexp(const vector<float>& v);
+
+template <typename RNG>
+unsigned sample_multinomial(const vector<float>& logprobs, RNG& rng) {
+  assert (logprobs.size() > 0);
+  float M = logprobs[0];
+  for (unsigned i = 1; i < logprobs.size(); ++i) {
+    M = max(logprobs[i], M);
+  }
+
+  float sum = 0.0;
+  for (unsigned i = 0; i < logprobs.size(); ++i) {
+    sum += exp(logprobs[i] - M);
+  }
+
+  uniform_real_distribution<float> dist(0, 1);
+  float r = sum * dist(rng);
+  for (unsigned i = 0; i < logprobs.size(); ++i) {
+    float p = exp(logprobs[i] - M);
+    if (r < p) {
+      return i;
+    }
+    else {
+      r -= p;
+    }
+  }
+  return logprobs.size() - 1;
+}
+
