@@ -292,6 +292,9 @@ vector<WordId> MorphLM::SampleCharSequence(Expression context, unsigned max_leng
     }
     else {
       seq.push_back(w);
+      Expression char_embedding = lookup(cg, output_char_embeddings, w);
+      Expression input = concatenate({char_embedding, context});
+      output_char_lstm.add_input(input);
     }
   }
   return seq;
