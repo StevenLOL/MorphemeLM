@@ -3,7 +3,8 @@
 
 const unsigned lstm_layer_count = 2;
 
-MorphLM::MorphLM() {}
+MorphLM::MorphLM() :
+    word_softmax(nullptr), root_softmax(nullptr), affix_softmax(nullptr), char_softmax(nullptr) {}
 
 MorphLM::~MorphLM() {
   SAFE_DELETE(word_softmax);
@@ -12,7 +13,8 @@ MorphLM::~MorphLM() {
   SAFE_DELETE(char_softmax);
 }
 
-MorphLM::MorphLM(Model& model, const MorphLMConfig& config) {
+MorphLM::MorphLM(Model& model, const MorphLMConfig& config) :
+    word_softmax(nullptr), root_softmax(nullptr), affix_softmax(nullptr), char_softmax(nullptr) {
   this->config = config;
 
   if (config.use_words) {
@@ -107,25 +109,30 @@ void MorphLM::NewGraph(ComputationGraph& cg) {
   output_char_lstm.new_graph(cg);
 }
 
+Expression MorphLM::EmbedInput(const Sentence& sentence, unsigned i, ComputationGraph& cg) {
+  vector<Expression> mode_embeddings;
+  Expression char_embedding = EmbedCharacterSequence(sentence.chars[i], cg);
+  mode_embeddings.push_back(char_embedding);
+  if (config.use_morphology) {
+    Expression analysis_embedding = EmbedAnalyses(sentence.analyses[i], sentence.analysis_probs[i], cg);
+    mode_embeddings.push_back(analysis_embedding);
+  }
+  if (config.use_words) {
+    Expression word_embedding = EmbedWord(sentence.words[i], cg);
+    mode_embeddings.push_back(word_embedding);
+  }
+
+  Expression input_embedding = concatenate(mode_embeddings);
+  return input_embedding;
+}
+
 Expression MorphLM::BuildGraph(const Sentence& sentence, ComputationGraph& cg) {
   assert (sentence.size() > 0);
   NewGraph(cg);
 
   vector<Expression> inputs;
   for (unsigned i = 0; i < sentence.size(); ++i) {
-    vector<Expression> mode_embeddings;
-    Expression char_embedding = EmbedCharacterSequence(sentence.chars[i], cg);
-    mode_embeddings.push_back(char_embedding);
-    if (config.use_morphology) {
-      Expression analysis_embedding = EmbedAnalyses(sentence.analyses[i], sentence.analysis_probs[i], cg);
-      mode_embeddings.push_back(analysis_embedding);
-    }
-    if (config.use_words) {
-      Expression word_embedding = EmbedWord(sentence.words[i], cg);
-      mode_embeddings.push_back(word_embedding);
-    }
-
-    Expression input_embedding = concatenate(mode_embeddings);
+    Expression input_embedding = EmbedInput(sentence, i, cg);
     inputs.push_back(input_embedding);
   }
 
@@ -327,6 +334,8 @@ Sentence MorphLM::Sample(unsigned max_length, ComputationGraph& cg) {
       sentence.analysis_probs.push_back(vector<float>());
       sentence.chars.push_back(char_seq);
     }
+    Expression input_embedding = EmbedInput(sentence, word_index, cg);
+    main_lstm.add_input(input_embedding);
   }
   return sentence;
 }
