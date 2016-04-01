@@ -179,6 +179,13 @@ Expression MorphLM::BuildGraph(const Sentence& sentence, ComputationGraph& cg) {
 }
 
 void MorphLM::SetDropout(float r) {
+  main_lstm.set_dropout(r);
+  if (config.use_morphology) {
+    input_affix_lstm.set_dropout(r);
+    output_affix_lstm.set_dropout(r);
+  }
+  input_char_lstm.set_dropout(r);
+  output_char_lstm.set_dropout(r);
 }
 
 Expression MorphLM::EmbedWord(const WordId word, ComputationGraph& cg) {
