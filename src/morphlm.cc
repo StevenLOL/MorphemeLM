@@ -163,15 +163,19 @@ Expression MorphLM::BuildGraph(const Sentence& sentence, ComputationGraph& cg) {
     mode_losses.push_back(char_loss);
 
     if (config.use_morphology) {
-      Expression morpheme_loss = ComputeMorphemeLoss(context, sentence.analyses[i], sentence.analysis_probs[i], cg);
-      morpheme_loss = pick(mode_log_probs, mode_index++) - morpheme_loss;
-      mode_losses.push_back(morpheme_loss);
+      if (sentence.analyses[i].size() > 0 and sentence.analyses[i][0].root != 0) {
+        Expression morpheme_loss = ComputeMorphemeLoss(context, sentence.analyses[i], sentence.analysis_probs[i], cg);
+        morpheme_loss = pick(mode_log_probs, mode_index++) - morpheme_loss;
+        mode_losses.push_back(morpheme_loss);
+      }
     }
 
     if (config.use_words) {
-      Expression word_loss = ComputeWordLoss(context, sentence.words[i], cg);
-      word_loss = pick(mode_log_probs, mode_index++) - word_loss;
-      mode_losses.push_back(word_loss);
+      if (sentence.words[i] != 0) {
+        Expression word_loss = ComputeWordLoss(context, sentence.words[i], cg);
+        word_loss = pick(mode_log_probs, mode_index++) - word_loss;
+        mode_losses.push_back(word_loss);
+      }
     }
 
     Expression total_loss = -logsumexp(mode_losses);

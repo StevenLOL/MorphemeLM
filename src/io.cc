@@ -1,6 +1,19 @@
 #include <fstream>
 #include "io.h"
 
+bool ReadVocab(const string& filename, Dict& vocab) {
+  ifstream f(filename);
+  if (!f.is_open()) {
+    return false;
+  }
+
+  for (string line; getline(f, line);) {
+    line = strip(line);
+    vocab.Convert(line);
+  }
+  return true;
+}
+
 void HandleMorphLine(const string& line, Dict& word_vocab, Dict& root_vocab, Dict& affix_vocab, Dict& char_vocab, Sentence& out) {
   vector<string> pieces = tokenize(line, "\t");
   assert (pieces.size() % 2 == 1);
