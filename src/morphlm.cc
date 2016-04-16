@@ -355,19 +355,28 @@ Sentence MorphLM::Sample(unsigned max_length, ComputationGraph& cg) {
     Expression mode_log_probs = log_softmax(model_chooser.Feed(context));
     cg.incremental_forward();
     vector<float> mode_log_prob_vals = as_vector(mode_log_probs.value());
-    assert (mode_log_prob_vals.size() == 2); // HACK: For now this only works for char-level only models
+    assert (!config.use_morphology); // HACK: For now this doesn't work with morphology-enabled models.
 
     unsigned mode = sample_multinomial(mode_log_prob_vals, rng);
     if (mode == 0) {
       // We sampled </s>
       break;
     }
-    else {
+    else if (mode == 1) {
+      // Generate a character sequence
       vector<WordId> char_seq = SampleCharSequence(context, 100, cg);
       sentence.words.push_back(0);
       sentence.analyses.push_back(vector<Analysis>());
       sentence.analysis_probs.push_back(vector<float>());
       sentence.chars.push_back(char_seq);
+    }
+    else {
+      // Generate a word directly
+      WordId word_id = word_softmax->sample(context);
+      sentence.words.push_back(word_id);
+      sentence.analyses.push_back(vector<Analysis>());
+      sentence.analysis_probs.push_back(vector<float>());
+      sentence.chars.push_back(vector<WordId>());
     }
     Expression input_embedding = EmbedInput(sentence, word_index, cg);
     main_lstm.add_input(input_embedding);

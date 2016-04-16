@@ -53,8 +53,13 @@ int main(int argc, char** argv) {
     Sentence sample = lm.Sample(max_length, cg);
     vector<string> words;
     for (unsigned i = 0; i < sample.size(); ++i) {
-      for (unsigned j = 0; j < sample.chars[i].size(); ++j) {
-        cout << char_vocab.Convert(sample.chars[i][j]);
+      if (sample.chars[i].size() > 0) {
+        for (unsigned j = 0; j < sample.chars[i].size(); ++j) {
+          cout << char_vocab.Convert(sample.chars[i][j]);
+        }
+      }
+      else {
+        cout << word_vocab.Convert(sample.words[i]);
       }
       cout << " ";
     } 
