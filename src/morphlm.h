@@ -66,6 +66,7 @@ public:
   MorphLM(Model& model, const MorphLMConfig& config);
 
   void NewGraph(ComputationGraph& cg);
+  vector<Expression> ShowModeProbs(const Sentence& sentence, ComputationGraph& cg);
   Expression BuildGraph(const Sentence& sentence, ComputationGraph& cg);
   void SetDropout(float r);
 

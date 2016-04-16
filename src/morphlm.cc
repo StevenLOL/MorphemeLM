@@ -126,6 +126,30 @@ Expression MorphLM::EmbedInput(const Sentence& sentence, unsigned i, Computation
   return input_embedding;
 }
 
+vector<Expression> MorphLM::ShowModeProbs(const Sentence& sentence, ComputationGraph& cg) {
+  assert (sentence.size() > 0);
+  NewGraph(cg);
+
+  vector<Expression> inputs;
+  for (unsigned i = 0; i < sentence.size(); ++i) {
+    Expression input_embedding = EmbedInput(sentence, i, cg);
+    inputs.push_back(input_embedding);
+  }
+
+  vector<Expression> mode_exprs;
+  main_lstm.start_new_sequence(main_lstm_init_v);
+  for (unsigned i = 0; i < inputs.size(); ++i) {
+    Expression context = main_lstm.back();
+    Expression mode_log_probs = log_softmax(model_chooser.Feed(context));
+    mode_exprs.push_back(mode_log_probs);
+    main_lstm.add_input(inputs[i]);
+  }
+
+  assert (mode_exprs.size() == sentence.size());
+
+  return mode_exprs;
+}
+
 Expression MorphLM::BuildGraph(const Sentence& sentence, ComputationGraph& cg) {
   assert (sentence.size() > 0);
   NewGraph(cg);
