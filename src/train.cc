@@ -63,7 +63,7 @@ void ctrlc_handler(int signal) {
 
 int main(int argc, char** argv) {
   signal (SIGINT, ctrlc_handler);
-  cnn::Initialize(argc, argv, true);
+  cnn::initialize(argc, argv, true);
 
   po::options_description desc("description");
   desc.add_options()
@@ -121,25 +121,25 @@ int main(int argc, char** argv) {
   }
 
   // TODO: Do we need start symbols at all?
-  word_vocab.Convert("UNK");
-  word_vocab.Convert("<s>");
-  word_vocab.Convert("</s>");
-  root_vocab.Convert("UNK");
-  root_vocab.Convert("<s>");
-  root_vocab.Convert("</s>");
-  char_vocab.Convert("UNK");
-  char_vocab.Convert("<s>");
-  char_vocab.Convert("</s>");
-  char_vocab.Convert("</w>");
-  affix_vocab.Convert("UNK");
-  affix_vocab.Convert("</w>");
+  word_vocab.convert("UNK");
+  word_vocab.convert("<s>");
+  word_vocab.convert("</s>");
+  root_vocab.convert("UNK");
+  root_vocab.convert("<s>");
+  root_vocab.convert("</s>");
+  char_vocab.convert("UNK");
+  char_vocab.convert("<s>");
+  char_vocab.convert("</s>");
+  char_vocab.convert("</w>");
+  affix_vocab.convert("UNK");
+  affix_vocab.convert("</w>");
 
   ReadVocab(word_vocab_filename, word_vocab);
   ReadVocab(root_vocab_filename, root_vocab);
-  word_vocab.Freeze();
-  word_vocab.SetUnk("UNK");
-  root_vocab.Freeze();
-  root_vocab.SetUnk("UNK");
+  word_vocab.freeze();
+  word_vocab.set_unk("UNK");
+  root_vocab.freeze();
+  root_vocab.set_unk("UNK");
 
   vector<Sentence> train_text = ReadMorphText(train_text_filename, word_vocab, root_vocab, affix_vocab, char_vocab); 
 
@@ -164,10 +164,10 @@ int main(int argc, char** argv) {
     // Maybe only need 1 layer on input LSTMs
     lm = new MorphLM(cnn_model, config);
 
-    affix_vocab.Freeze();
-    affix_vocab.SetUnk("UNK");
-    char_vocab.Freeze();
-    char_vocab.SetUnk("UNK");
+    affix_vocab.freeze();
+    affix_vocab.set_unk("UNK");
+    char_vocab.freeze();
+    char_vocab.set_unk("UNK");
     cerr << "Dicts frozen" << endl;
   }
 
@@ -183,10 +183,10 @@ int main(int argc, char** argv) {
   unsigned dev_frequency = vm["dev_frequency"].as<unsigned>();
   unsigned report_frequency = vm["report_frequency"].as<unsigned>();
   if (num_cores > 1) {
-    RunMultiProcess<Sentence>(num_cores, &learner, trainer, train_text, dev_text, num_iterations, dev_frequency, report_frequency);
+    run_multi_process<Sentence>(num_cores, &learner, trainer, train_text, dev_text, num_iterations, dev_frequency, report_frequency);
   }
   else {
-    RunSingleProcess<Sentence>(&learner, trainer, train_text, dev_text, num_iterations, dev_frequency, report_frequency);
+    run_single_process<Sentence>(&learner, trainer, train_text, dev_text, num_iterations, dev_frequency, report_frequency, 1);
   }
 
   return 0;

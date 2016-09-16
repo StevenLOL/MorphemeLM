@@ -15,7 +15,7 @@ using namespace std;
 namespace po = boost::program_options;
 
 int main(int argc, char** argv) {  
-  cnn::Initialize(argc, argv);
+  cnn::initialize(argc, argv);
 
   po::options_description desc("description");
   desc.add_options()
@@ -55,11 +55,11 @@ int main(int argc, char** argv) {
     for (unsigned i = 0; i < sample.size(); ++i) {
       if (sample.chars[i].size() > 0) {
         for (unsigned j = 0; j < sample.chars[i].size(); ++j) {
-          cout << char_vocab.Convert(sample.chars[i][j]);
+          cout << char_vocab.convert(sample.chars[i][j]);
         }
       }
       else {
-        cout << word_vocab.Convert(sample.words[i]);
+        cout << word_vocab.convert(sample.words[i]);
       }
       cout << " ";
     } 
