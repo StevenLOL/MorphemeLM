@@ -1,14 +1,14 @@
 #pragma once
 #include <boost/serialization/access.hpp>
-#include "cnn/expr.h"
-#include "cnn/lstm.h"
-#include "cnn/cfsm-builder.h"
+#include "dynet/expr.h"
+#include "dynet/lstm.h"
+#include "dynet/cfsm-builder.h"
 #include "utils.h"
 #include "mlp.h"
 
 using namespace std;
-using namespace cnn;
-using namespace cnn::expr;
+using namespace dynet;
+using namespace dynet::expr;
 
 struct MorphLMConfig {
   bool use_words;

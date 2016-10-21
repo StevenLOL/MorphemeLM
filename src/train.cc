@@ -1,15 +1,15 @@
 #include "train.h"
 
-using namespace cnn;
-using namespace cnn::expr;
-using namespace cnn::mp;
+using namespace dynet;
+using namespace dynet::expr;
+using namespace dynet::mp;
 using namespace std;
 namespace po = boost::program_options;
 
 class Learner : public ILearner<Sentence, SufficientStats> {
 public:
-  Learner(Dict& word_vocab, Dict& root_vocab, Dict& affix_vocab, Dict& char_vocab, MorphLM& lm, Model& cnn_model) :
-    word_vocab(word_vocab), root_vocab(root_vocab), affix_vocab(affix_vocab), char_vocab(char_vocab), lm(lm), cnn_model(cnn_model) {}
+  Learner(Dict& word_vocab, Dict& root_vocab, Dict& affix_vocab, Dict& char_vocab, MorphLM& lm, Model& dynet_model) :
+    word_vocab(word_vocab), root_vocab(root_vocab), affix_vocab(affix_vocab), char_vocab(char_vocab), lm(lm), dynet_model(dynet_model) {}
   ~Learner() {}
   SufficientStats LearnFromDatum(const Sentence& datum, bool learn) {
     ComputationGraph cg;
@@ -19,17 +19,17 @@ public:
     else {
       lm.SetDropout(0.0f);
     }
-    lm.BuildGraph(datum, cg);
-    cnn::real loss = as_scalar(cg.forward());
+    Expression loss_expr = lm.BuildGraph(datum, cg);
+    dynet::real loss = as_scalar(cg.forward(loss_expr));
     if (learn) {
-      cg.backward();
+      cg.backward(loss_expr);
     }
     return SufficientStats(loss, datum.size(), 1);
   }
 
   void SaveModel() {
     if (!quiet) {
-      Serialize(word_vocab, root_vocab, affix_vocab, char_vocab, lm, cnn_model);
+      Serialize(word_vocab, root_vocab, affix_vocab, char_vocab, lm, dynet_model);
     }
   }
 
@@ -41,7 +41,7 @@ private:
   Dict& affix_vocab;
   Dict& char_vocab;
   MorphLM& lm;
-  Model& cnn_model;
+  Model& dynet_model;
 };
 
 // This function lets us elegantly handle the user pressing ctrl-c.
@@ -57,13 +57,13 @@ void ctrlc_handler(int signal) {
   else {
     cerr << "Ctrl-c pressed!" << endl;
     ctrlc_pressed = true;
-    cnn::mp::stop_requested = true;
+    dynet::mp::stop_requested = true;
   }
 }
 
 int main(int argc, char** argv) {
   signal (SIGINT, ctrlc_handler);
-  cnn::initialize(argc, argv, true);
+  dynet::initialize(argc, argv, true);
 
   po::options_description desc("description");
   desc.add_options()
@@ -106,14 +106,14 @@ int main(int argc, char** argv) {
   const string root_vocab_filename = vm["root_vocab"].as<string>();
 
   Dict word_vocab, root_vocab, affix_vocab, char_vocab;
-  Model cnn_model;
+  Model dynet_model;
   MorphLM* lm = nullptr;
   Trainer* trainer = nullptr;
 
   if (vm.count("model")) {
     lm = new MorphLM();
     string model_filename = vm["model"].as<string>();
-    Deserialize(model_filename, word_vocab, root_vocab, affix_vocab, char_vocab, *lm, cnn_model);
+    Deserialize(model_filename, word_vocab, root_vocab, affix_vocab, char_vocab, *lm, dynet_model);
     assert (word_vocab.is_frozen());
     assert (root_vocab.is_frozen());
     assert (affix_vocab.is_frozen());
@@ -162,7 +162,7 @@ int main(int argc, char** argv) {
     config.affix_lstm_dim = 128; // 1 16 128
     config.char_lstm_dim = 64; // 1 16 64
     // Maybe only need 1 layer on input LSTMs
-    lm = new MorphLM(cnn_model, config);
+    lm = new MorphLM(dynet_model, config);
 
     affix_vocab.freeze();
     affix_vocab.set_unk("UNK");
@@ -174,10 +174,10 @@ int main(int argc, char** argv) {
   vector<Sentence> dev_text = ReadMorphText(dev_text_filename, word_vocab, root_vocab, affix_vocab, char_vocab);
 
   cerr << "Vocabulary sizes: " << word_vocab.size() << " words, " << root_vocab.size() << " roots, " << affix_vocab.size() << " affixes, " << char_vocab.size() << " chars" << endl;
-  cerr << "Total parameters: " << cnn_model.parameter_count() << endl;
+  cerr << "Total parameters: " << dynet_model.parameter_count() << endl;
 
-  trainer = CreateTrainer(cnn_model, vm);
-  Learner learner(word_vocab, root_vocab, affix_vocab, char_vocab, *lm, cnn_model);
+  trainer = CreateTrainer(dynet_model, vm);
+  Learner learner(word_vocab, root_vocab, affix_vocab, char_vocab, *lm, dynet_model);
   learner.quiet = vm.count("quiet") > 0;
   learner.dropout_rate = vm["dropout_rate"].as<float>();
   unsigned dev_frequency = vm["dev_frequency"].as<unsigned>();

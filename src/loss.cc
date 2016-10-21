@@ -1,4 +1,4 @@
-#include "cnn/cnn.h"
+#include "dynet/dynet.h"
 #include <boost/program_options.hpp>
 
 #include <iostream>
@@ -7,12 +7,12 @@
 #include "io.h"
 #include "utils.h"
 
-using namespace cnn;
+using namespace dynet;
 using namespace std;
 namespace po = boost::program_options;
 
 int main(int argc, char** argv) {
-  cnn::initialize(argc, argv);
+  dynet::initialize(argc, argv);
 
   po::options_description desc("description");
   desc.add_options()
@@ -36,22 +36,21 @@ int main(int argc, char** argv) {
   const string model_filename = vm["model"].as<string>();
   const bool show_perp = vm.count("perp") > 0;
 
-  Model cnn_model;
+  Model dynet_model;
   Dict word_vocab, root_vocab, affix_vocab, char_vocab;
   MorphLM lm;
   cerr << "Loading model from " << model_filename << "...";
-  Deserialize(model_filename, word_vocab, root_vocab, affix_vocab, char_vocab, lm, cnn_model);
+  Deserialize(model_filename, word_vocab, root_vocab, affix_vocab, char_vocab, lm, dynet_model);
   cerr << " Done!" << endl;
 
   unsigned sentence_number = 0;
-  cnn::real total_loss = 0;
+  dynet::real total_loss = 0;
   unsigned total_words = 0;
   Sentence input;
   while(ReadMorphSentence(cin, word_vocab, root_vocab, affix_vocab, char_vocab, input)) {
     ComputationGraph cg;
     Expression loss_expr = lm.BuildGraph(input, cg);
-    cg.incremental_forward();
-    cnn::real loss = as_scalar(loss_expr.value());
+    dynet::real loss = as_scalar(loss_expr.value());
     unsigned words = input.size();
     if (show_perp) {
       cout << exp(loss / words) << endl;

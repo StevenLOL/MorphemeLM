@@ -1,4 +1,4 @@
-#include "cnn/cnn.h"
+#include "dynet/dynet.h"
 
 #include <boost/program_options.hpp>
 #include <boost/algorithm/string/join.hpp>
@@ -10,12 +10,12 @@
 #include "utils.h"
 #include "morphlm.h"
 
-using namespace cnn;
+using namespace dynet;
 using namespace std;
 namespace po = boost::program_options;
 
 int main(int argc, char** argv) {  
-  cnn::initialize(argc, argv);
+  dynet::initialize(argc, argv);
 
   po::options_description desc("description");
   desc.add_options()
@@ -39,10 +39,10 @@ int main(int argc, char** argv) {
   string model_filename = vm["model"].as<string>();
   unsigned max_length = vm["max_length"].as<unsigned>();
 
-  Model cnn_model;
+  Model dynet_model;
   MorphLM lm;
   Dict word_vocab, root_vocab, affix_vocab, char_vocab;
-  Deserialize(model_filename, word_vocab, root_vocab, affix_vocab, char_vocab, lm, cnn_model);
+  Deserialize(model_filename, word_vocab, root_vocab, affix_vocab, char_vocab, lm, dynet_model);
   assert (word_vocab.is_frozen());
   assert (root_vocab.is_frozen());
   assert (affix_vocab.is_frozen());

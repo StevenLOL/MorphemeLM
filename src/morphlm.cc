@@ -353,7 +353,6 @@ Sentence MorphLM::Sample(unsigned max_length, ComputationGraph& cg) {
   for (unsigned word_index = 0; word_index <= max_length; ++word_index) {
     Expression context = main_lstm.back();
     Expression mode_log_probs = log_softmax(model_chooser.Feed(context));
-    cg.incremental_forward();
     vector<float> mode_log_prob_vals = as_vector(mode_log_probs.value());
     assert (!config.use_morphology); // HACK: For now this doesn't work with morphology-enabled models.
 

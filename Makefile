@@ -3,9 +3,9 @@ CNN_DIR = ./cnn
 EIGEN = ./eigen
 CNN_BUILD_DIR=$(CNN_DIR)/build
 INCS=-I$(CNN_DIR) -I$(CNN_BUILD_DIR) -I$(EIGEN)
-LIBS=-L$(CNN_BUILD_DIR)/cnn/
-FINAL=-lcnn -lboost_regex -lboost_serialization -lboost_program_options -lrt -lpthread
-#FINAL=-lcnn -lcnncuda -lboost_regex -lboost_serialization -lboost_program_options -lcuda -lcudart -lcublas
+LIBS=-L$(CNN_BUILD_DIR)/dynet/
+FINAL=-ldynet -lboost_regex -lboost_serialization -lboost_program_options -lrt -lpthread
+#FINAL=-lgdynet -ldynetcuda -lboost_regex -lboost_serialization -lboost_program_options -lcuda -lcudart -lcublas -lpthread -lrt
 CFLAGS=-std=c++11 -Ofast -g -march=native -pipe
 #CFLAGS=-std=c++11 -Wall -pedantic -O0 -g -pipe -DDEBUG
 BINDIR=bin

@@ -185,13 +185,13 @@ vector<Sentence> ReadMorphText(const string& filename, Dict& word_vocab, Dict& r
   return corpus;
 }
 
-void Serialize(const Dict& word_vocab, const Dict& root_vocab, const Dict& affix_vocab, const Dict& char_vocab, const MorphLM& lm, Model& cnn_model) {
+void Serialize(const Dict& word_vocab, const Dict& root_vocab, const Dict& affix_vocab, const Dict& char_vocab, const MorphLM& lm, Model& dynet_model) {
   int r = ftruncate(fileno(stdout), 0);
   if (r != 0) {}
   fseek(stdout, 0, SEEK_SET);
 
   boost::archive::binary_oarchive oa(cout);
-  oa & cnn_model;
+  oa & dynet_model;
   oa & word_vocab;
   oa & root_vocab;
   oa & affix_vocab;
@@ -199,10 +199,10 @@ void Serialize(const Dict& word_vocab, const Dict& root_vocab, const Dict& affix
   oa & lm;
 }
 
-void Deserialize(const string& filename, Dict& word_vocab, Dict& root_vocab, Dict& affix_vocab, Dict& char_vocab, MorphLM& lm, Model& cnn_model) {
+void Deserialize(const string& filename, Dict& word_vocab, Dict& root_vocab, Dict& affix_vocab, Dict& char_vocab, MorphLM& lm, Model& dynet_model) {
   ifstream f(filename);
   boost::archive::binary_iarchive ia(f);
-  ia & cnn_model;
+  ia & dynet_model;
   ia & word_vocab;
   ia & root_vocab;
   ia & affix_vocab;
