@@ -59,6 +59,20 @@ private:
   }
 };
 
+class WordFillerOuter {
+public:
+  WordFillerOuter(Dict* word_vocab, Dict* root_vocab, Dict* affix_vocab, Dict* char_vocab) : word_vocab(word_vocab), root_vocab(root_vocab), affix_vocab(affix_vocab), char_vocab(char_vocab) {}
+void FillFromChars(Sentence& sentence);
+void FillFromMorph(Sentence& sentence);
+void FillFromWord(Sentence& sentence);
+
+private:
+  Dict* word_vocab;
+  Dict* root_vocab;
+  Dict* affix_vocab;
+  Dict* char_vocab;
+};
+
 class MorphLM {
 public:
   MorphLM();
@@ -81,12 +95,13 @@ public:
   Expression ComputeMorphemeLoss(Expression context, const vector<Analysis>& refs, const vector<float>& probs, ComputationGraph& cg);
   Expression ComputeCharLoss(Expression context, const vector<WordId>& ref, ComputationGraph& cg);
 
-  Sentence Sample(unsigned max_length, ComputationGraph& cg);
+  Sentence Sample(unsigned max_length, ComputationGraph& cg, WordFillerOuter* wfo);
+  Analysis SampleMorphAnalysis(Expression context, unsigned max_length, ComputationGraph& cg);
   vector<WordId> SampleCharSequence(Expression context, unsigned max_length, ComputationGraph& cg);
 
-private:
+public:
   MorphLMConfig config;
-
+private:
   LookupParameter input_word_embeddings;
   LookupParameter input_root_embeddings;
   LookupParameter input_affix_embeddings;

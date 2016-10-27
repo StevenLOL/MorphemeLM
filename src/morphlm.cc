@@ -1,3 +1,4 @@
+#include <boost/algorithm/string/join.hpp>
 #include "morphlm.h"
 #define SAFE_DELETE(p) if ((p) != nullptr) { delete (p); (p) = nullptr; }
 
@@ -76,7 +77,7 @@ MorphLM::MorphLM(Model& model, const MorphLMConfig& config) :
 
 void MorphLM::NewGraph(ComputationGraph& cg) {
   Expression input_char_lstm_init_expr = parameter(cg, input_char_lstm_init);
-  input_char_lstm_init_v = MakeLSTMInitialState(input_char_lstm_init_expr, config.char_lstm_dim, lstm_layer_count); 
+  input_char_lstm_init_v = MakeLSTMInitialState(input_char_lstm_init_expr, config.char_lstm_dim, lstm_layer_count);
 
   if (config.use_morphology) {
     input_affix_lstm.new_graph(cg);
@@ -84,7 +85,7 @@ void MorphLM::NewGraph(ComputationGraph& cg) {
   input_char_lstm.new_graph(cg);
 
   Expression main_lstm_init_expr = parameter(cg, main_lstm_init);
-  main_lstm_init_v = MakeLSTMInitialState(main_lstm_init_expr, config.main_lstm_dim, lstm_layer_count); 
+  main_lstm_init_v = MakeLSTMInitialState(main_lstm_init_expr, config.main_lstm_dim, lstm_layer_count);
 
   main_lstm.new_graph(cg);
   model_chooser.NewGraph(cg);
@@ -123,6 +124,7 @@ Expression MorphLM::EmbedInput(const Sentence& sentence, unsigned i, Computation
   }
 
   Expression input_embedding = concatenate(mode_embeddings);
+  //Expression input_embedding = sum(mode_embeddings);
   return input_embedding;
 }
 
@@ -330,6 +332,7 @@ vector<WordId> MorphLM::SampleCharSequence(Expression context, unsigned max_leng
     WordId w = char_softmax->sample(h);
 
     if (w == 3) {
+      seq.push_back(w);
       break;
     }
     else {
@@ -342,7 +345,33 @@ vector<WordId> MorphLM::SampleCharSequence(Expression context, unsigned max_leng
   return seq;
 }
 
-Sentence MorphLM::Sample(unsigned max_length, ComputationGraph& cg) {
+Analysis MorphLM::SampleMorphAnalysis(Expression context, unsigned max_length, ComputationGraph& cg) {
+  WordId root = root_softmax->sample(context);
+  Expression root_embedding = lookup(cg, output_root_embeddings, root);
+
+  Expression c = output_affix_lstm_init.Feed(concatenate({root_embedding, context}));
+  vector<Expression> hinit = MakeLSTMInitialState(c, config.affix_lstm_dim, lstm_layer_count);
+  output_affix_lstm.start_new_sequence(hinit);
+
+  vector<WordId> affixes;
+  while (affixes.size() < max_length) {
+    Expression h = output_affix_lstm.back();
+    WordId affix = affix_softmax->sample(h);
+
+    if (affix == 3) {
+      break;
+    }
+    else {
+      affixes.push_back(affix);
+      Expression affix_embedding = lookup(cg, output_affix_embeddings, affix);
+      Expression input = concatenate({affix_embedding, context});
+      output_affix_lstm.add_input(input);
+    }
+  }
+  return Analysis {root, affixes};
+}
+
+Sentence MorphLM::Sample(unsigned max_length, ComputationGraph& cg, WordFillerOuter* wfo) {
   random_device rd;
   mt19937 rng(rd());
   Sentence sentence;
@@ -368,6 +397,19 @@ Sentence MorphLM::Sample(unsigned max_length, ComputationGraph& cg) {
       sentence.analyses.push_back(vector<Analysis>());
       sentence.analysis_probs.push_back(vector<float>());
       sentence.chars.push_back(char_seq);
+      //wfo->FillFromChars(sentence);
+    }
+    else if (mode == 2 && config.use_morphology) {
+      // Generate a morpheme sequence
+      Analysis analysis = SampleMorphAnalysis(context, 100, cg);
+      sentence.words.push_back(0);
+      sentence.analyses.push_back(vector<Analysis>());
+      sentence.analysis_probs.push_back(vector<float>());
+      sentence.chars.push_back(vector<WordId>());
+
+      sentence.analysis_probs.back().push_back(1.0f);
+      sentence.analyses.back().push_back(analysis);
+      wfo->FillFromMorph(sentence);
     }
     else {
       // Generate a word directly
@@ -376,6 +418,7 @@ Sentence MorphLM::Sample(unsigned max_length, ComputationGraph& cg) {
       sentence.analyses.push_back(vector<Analysis>());
       sentence.analysis_probs.push_back(vector<float>());
       sentence.chars.push_back(vector<WordId>());
+      //wfo->FillFromWord(sentence);
     }
     Expression input_embedding = EmbedInput(sentence, word_index, cg);
     main_lstm.add_input(input_embedding);
@@ -390,4 +433,52 @@ vector<Expression> MakeLSTMInitialState(Expression c, unsigned lstm_dim, unsigne
     hinit[i + lstm_layer_count] = tanh(hinit[i]);
   }
   return hinit;
+}
+
+void WordFillerOuter::FillFromChars(Sentence& sentence) {
+  assert (char_vocab != nullptr);
+  vector<WordId>& char_ids = sentence.chars.back();
+  vector<string> chars(char_ids.size());
+  for (unsigned i = 0; i < char_ids.size(); ++i) {
+    chars[i] = char_vocab->convert(char_ids[i]);
+  }
+  string word = boost::algorithm::join(chars, "");
+
+  if (root_vocab != nullptr) {
+    assert (affix_vocab != nullptr);
+    assert (false);
+  }
+
+  if (word_vocab != nullptr) {
+    sentence.words.back() = word_vocab->convert(word);
+  }  
+}
+
+void WordFillerOuter::FillFromMorph(Sentence& sentence) {
+  assert (root_vocab != nullptr);
+  assert (affix_vocab != nullptr);
+  assert (false);
+}
+
+void WordFillerOuter::FillFromWord(Sentence& sentence) {
+  assert (word_vocab != nullptr);
+  string word = word_vocab->convert(sentence.words.back());
+
+  if (root_vocab != nullptr) {
+    assert (affix_vocab != nullptr);
+    assert (false);
+  }
+
+  vector<WordId>& chars = sentence.chars.back();
+  assert (chars.size() == 0);
+  if (char_vocab != nullptr) {
+    unsigned i = 0;
+    while (i < word.length()) {
+      unsigned len = UTF8Len(word[i]);
+      string c = word.substr(i, len);
+      chars.push_back(char_vocab->convert(c));
+      i += len;
+    }
+    chars.push_back(char_vocab->convert("</w>"));
+  }
 }
