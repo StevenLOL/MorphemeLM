@@ -17,6 +17,7 @@ int main(int argc, char** argv) {
   po::options_description desc("description");
   desc.add_options()
   ("model", po::value<string>()->required(), "model files, as output by train")
+  ("start_index,i", po::value<unsigned>()->default_value(0), "Index of first sentence")
   ("help", "Display this help message");
 
   po::positional_options_description positional_options;
@@ -42,20 +43,26 @@ int main(int argc, char** argv) {
   Deserialize(model_filename, word_vocab, root_vocab, affix_vocab, char_vocab, lm, dynet_model);
   cerr << " Done!" << endl;
 
-  unsigned sentence_number = 0;
+  unsigned sentence_number = vm["start_index"].as<unsigned>();
   Sentence input;
   while(ReadMorphSentence(cin, word_vocab, root_vocab, affix_vocab, char_vocab, input)) {
-    ComputationGraph cg;
-    lm.NewGraph(cg);
-    lm.main_lstm.start_new_sequence(lm.main_lstm_init_v);
     for (unsigned i = 0; i < input.analyses.size(); ++i) {
       vector<float> losses;
-      Expression context = lm.main_lstm.back();
-      Expression embedding = lm.EmbedInput(input, i, cg);
-      for (unsigned j = 0; j < input.analyses[i].size(); ++j) {
-        const Analysis& analysis = input.analyses[i][j];
-        Expression loss = lm.ComputeAnalysisLoss(context, analysis, cg);
-        losses.push_back(-as_scalar(loss.value()));
+      assert (input.analyses[i].size() > 0);
+      if (input.analyses[i].size() == 1) {
+        losses.push_back(0);
+      }
+      else {
+        for (unsigned j = 0; j < input.analyses[i].size(); ++j) {
+          Sentence temp_input = input;
+          temp_input.analyses[i].clear();
+          temp_input.analyses[i].push_back(input.analyses[i][j]);
+
+          ComputationGraph cg;
+          lm.NewGraph(cg);
+          Expression loss = lm.BuildGraph(temp_input, cg);
+          losses.push_back(-as_scalar(loss.value()));
+        }
       }
       assert (losses.size() == input.analyses[i].size());
       cout << sentence_number << " ||| " << i << " |||";
@@ -64,7 +71,6 @@ int main(int argc, char** argv) {
         cout << " " << expf(losses[j] - sum);
       }
       cout << endl;
-      lm.main_lstm.add_input(embedding);
     }
     cout << endl;
     cout.flush();
