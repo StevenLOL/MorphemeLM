@@ -30,9 +30,9 @@ MorphLM::MorphLM(Model& model, const MorphLMConfig& config) :
   input_char_lstm_init = model.add_parameters({lstm_layer_count * config.char_lstm_dim});
 
   if (config.use_morphology) {
-    input_affix_lstm = LSTMBuilder(lstm_layer_count, config.affix_embedding_dim, config.affix_lstm_dim, &model);
+    input_affix_lstm = LSTMBuilder(lstm_layer_count, config.affix_embedding_dim, config.affix_lstm_dim, model);
   }
-  input_char_lstm = LSTMBuilder(lstm_layer_count, config.char_embedding_dim, config.char_lstm_dim, &model);
+  input_char_lstm = LSTMBuilder(lstm_layer_count, config.char_embedding_dim, config.char_lstm_dim, model);
 
   unsigned total_input_dim = config.char_lstm_dim;
   unsigned output_mode_count = 2; // char-level or EOS
@@ -46,17 +46,17 @@ MorphLM::MorphLM(Model& model, const MorphLMConfig& config) :
   }
 
   main_lstm_init = model.add_parameters({lstm_layer_count * config.main_lstm_dim});
-  main_lstm = LSTMBuilder(lstm_layer_count, total_input_dim, config.main_lstm_dim, &model);
+  main_lstm = LSTMBuilder(lstm_layer_count, total_input_dim, config.main_lstm_dim, model);
   model_chooser = MLP(model, config.main_lstm_dim, config.model_chooser_hidden_dim, output_mode_count);
 
   if (config.use_words) {
-    word_softmax = new StandardSoftmaxBuilder(config.main_lstm_dim, config.word_vocab_size, &model);
+    word_softmax = new StandardSoftmaxBuilder(config.main_lstm_dim, config.word_vocab_size, model);
   }
   if (config.use_morphology) {
-    root_softmax = new StandardSoftmaxBuilder(config.main_lstm_dim, config.root_vocab_size, &model);
-    affix_softmax = new StandardSoftmaxBuilder(config.affix_lstm_dim, config.affix_vocab_size, &model);
+    root_softmax = new StandardSoftmaxBuilder(config.main_lstm_dim, config.root_vocab_size, model);
+    affix_softmax = new StandardSoftmaxBuilder(config.affix_lstm_dim, config.affix_vocab_size, model);
   }
-  char_softmax = new StandardSoftmaxBuilder(config.char_lstm_dim, config.char_vocab_size, &model);
+  char_softmax = new StandardSoftmaxBuilder(config.char_lstm_dim, config.char_vocab_size, model);
 
   if (config.use_morphology) {
     output_root_embeddings = model.add_lookup_parameters(config.root_vocab_size, {config.root_embedding_dim});
@@ -70,9 +70,9 @@ MorphLM::MorphLM(Model& model, const MorphLMConfig& config) :
   }
 
   if (config.use_morphology) {
-    output_affix_lstm = LSTMBuilder(lstm_layer_count, config.affix_embedding_dim + config.main_lstm_dim, config.affix_lstm_dim, &model);
+    output_affix_lstm = LSTMBuilder(lstm_layer_count, config.affix_embedding_dim + config.main_lstm_dim, config.affix_lstm_dim, model);
   }
-  output_char_lstm = LSTMBuilder(lstm_layer_count, config.char_embedding_dim + config.main_lstm_dim, config.char_lstm_dim, &model);
+  output_char_lstm = LSTMBuilder(lstm_layer_count, config.char_embedding_dim + config.main_lstm_dim, config.char_lstm_dim, model);
 }
 
 void MorphLM::NewGraph(ComputationGraph& cg) {
