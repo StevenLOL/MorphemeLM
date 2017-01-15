@@ -1,5 +1,5 @@
 CC=g++
-CNN_DIR = ./cnn
+CNN_DIR = ./dynet
 EIGEN = ./eigen
 CNN_BUILD_DIR=$(CNN_DIR)/build
 INCS=-I$(CNN_DIR) -I$(CNN_BUILD_DIR) -I$(EIGEN)
