@@ -72,6 +72,7 @@ int main(int argc, char** argv) {
   ("dev_text", po::value<string>()->required(), "Dev text, used for early stopping")
   ("word_vocab", po::value<string>()->required(), "Surface form vocab list of words. Anything outside this list must be generated via morphology or characters")
   ("root_vocab", po::value<string>()->required(), "Vocabulary of word stems. Anything outside this list must be generated as a character stream (or maybe as whole words, but probably not)")
+  ("char_vocab", po::value<string>()->required(), "Vocabulary of characters. Anything outside this list is replaced with an UNK character")
   ("num_iterations,i", po::value<unsigned>()->default_value(UINT_MAX), "Number of epochs to train for")
   ("cores,j", po::value<unsigned>()->default_value(1), "Number of CPU cores to use for training")
   ("dropout_rate", po::value<float>()->default_value(0.0), "Dropout rate (should be >= 0.0 and < 1)")
@@ -104,6 +105,7 @@ int main(int argc, char** argv) {
   const string dev_text_filename = vm["dev_text"].as<string>();
   const string word_vocab_filename = vm["word_vocab"].as<string>();
   const string root_vocab_filename = vm["root_vocab"].as<string>();
+  const string char_vocab_filename = vm["char_vocab"].as<string>();
 
   Dict word_vocab, root_vocab, affix_vocab, char_vocab;
   Model dynet_model;
@@ -136,10 +138,13 @@ int main(int argc, char** argv) {
 
   ReadVocab(word_vocab_filename, word_vocab);
   ReadVocab(root_vocab_filename, root_vocab);
+  ReadVocab(char_vocab_filename, char_vocab);
   word_vocab.freeze();
   word_vocab.set_unk("UNK");
   root_vocab.freeze();
   root_vocab.set_unk("UNK");
+  char_vocab.freeze();
+  char_vocab.set_unk("UNK");
 
   vector<Sentence> train_text = ReadMorphText(train_text_filename, word_vocab, root_vocab, affix_vocab, char_vocab); 
 
@@ -166,8 +171,6 @@ int main(int argc, char** argv) {
 
     affix_vocab.freeze();
     affix_vocab.set_unk("UNK");
-    char_vocab.freeze();
-    char_vocab.set_unk("UNK");
     cerr << "Dicts frozen" << endl;
   }
 
