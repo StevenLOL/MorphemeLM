@@ -11,6 +11,7 @@ using namespace dynet;
 using namespace dynet::expr;
 
 struct MorphLMConfig {
+  bool bidirectional;
   bool use_words;
   bool use_morphology;
 
@@ -36,6 +37,7 @@ private:
   friend class boost::serialization::access;
   template<class Archive>
   void serialize(Archive& ar, const unsigned int) {
+    ar & bidirectional;
     ar & use_words;
     ar & use_morphology;
 
@@ -81,6 +83,7 @@ public:
 
   void NewGraph(ComputationGraph& cg);
   vector<Expression> ShowModeProbs(const Sentence& sentence, ComputationGraph& cg);
+  vector<Expression> GetContexts(const vector<Expression>& inputs, ComputationGraph& cg);
   Expression BuildGraph(const Sentence& sentence, ComputationGraph& cg);
   void SetDropout(float r);
 
@@ -113,10 +116,13 @@ public:
   LSTMBuilder input_affix_lstm;
   LSTMBuilder input_char_lstm;
 
-  Parameter main_lstm_init;
-  vector<Expression> main_lstm_init_v;
+  Parameter main_lstm_fwd_init;
+  vector<Expression> main_lstm_fwd_init_v;
+  Parameter main_lstm_rev_init;
+  vector<Expression> main_lstm_rev_init_v;
 
-  LSTMBuilder main_lstm;
+  LSTMBuilder main_lstm_fwd;
+  LSTMBuilder main_lstm_rev;
   MLP model_chooser;
 
   SoftmaxBuilder* word_softmax;
@@ -155,9 +161,11 @@ public:
     }
     ar & input_char_lstm;
 
-    ar & main_lstm_init;
+    ar & main_lstm_fwd_init;
+    ar & main_lstm_rev_init;
 
-    ar & main_lstm;
+    ar & main_lstm_fwd;
+    ar & main_lstm_rev;
     ar & model_chooser;
 
     if (config.use_words) {

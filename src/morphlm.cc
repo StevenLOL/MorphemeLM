@@ -45,15 +45,20 @@ MorphLM::MorphLM(Model& model, const MorphLMConfig& config) :
     output_mode_count++;
   }
 
-  main_lstm_init = model.add_parameters({lstm_layer_count * config.main_lstm_dim});
-  main_lstm = LSTMBuilder(lstm_layer_count, total_input_dim, config.main_lstm_dim, model);
-  model_chooser = MLP(model, config.main_lstm_dim, config.model_chooser_hidden_dim, output_mode_count);
+  unsigned context_dim = config.bidirectional ? 2 * config.main_lstm_dim : config.main_lstm_dim;
+  main_lstm_fwd_init = model.add_parameters({lstm_layer_count * config.main_lstm_dim});
+  main_lstm_fwd = LSTMBuilder(lstm_layer_count, total_input_dim, config.main_lstm_dim, model);
+  if (config.bidirectional) {
+    main_lstm_rev_init = model.add_parameters({lstm_layer_count * config.main_lstm_dim});
+    main_lstm_rev = LSTMBuilder(lstm_layer_count, total_input_dim, config.main_lstm_dim, model);
+  }
+  model_chooser = MLP(model, context_dim, config.model_chooser_hidden_dim, output_mode_count);
 
   if (config.use_words) {
-    word_softmax = new StandardSoftmaxBuilder(config.main_lstm_dim, config.word_vocab_size, model);
+    word_softmax = new StandardSoftmaxBuilder(context_dim, config.word_vocab_size, model);
   }
   if (config.use_morphology) {
-    root_softmax = new StandardSoftmaxBuilder(config.main_lstm_dim, config.root_vocab_size, model);
+    root_softmax = new StandardSoftmaxBuilder(context_dim, config.root_vocab_size, model);
     affix_softmax = new StandardSoftmaxBuilder(config.affix_lstm_dim, config.affix_vocab_size, model);
   }
   char_softmax = new StandardSoftmaxBuilder(config.char_lstm_dim, config.char_vocab_size, model);
@@ -64,15 +69,15 @@ MorphLM::MorphLM(Model& model, const MorphLMConfig& config) :
   }
   output_char_embeddings = model.add_lookup_parameters(config.char_vocab_size, {config.char_embedding_dim});
 
-  output_char_lstm_init = MLP(model, config.main_lstm_dim, config.char_lstm_init_hidden_dim, lstm_layer_count * config.char_lstm_dim);
+  output_char_lstm_init = MLP(model, context_dim, config.char_lstm_init_hidden_dim, lstm_layer_count * config.char_lstm_dim);
   if (config.use_morphology) {
-    output_affix_lstm_init = MLP(model, config.main_lstm_dim + config.root_embedding_dim, config.affix_lstm_init_hidden_dim, lstm_layer_count * config.affix_lstm_dim);
+    output_affix_lstm_init = MLP(model, context_dim + config.root_embedding_dim, config.affix_lstm_init_hidden_dim, lstm_layer_count * config.affix_lstm_dim);
   }
 
   if (config.use_morphology) {
-    output_affix_lstm = LSTMBuilder(lstm_layer_count, config.affix_embedding_dim + config.main_lstm_dim, config.affix_lstm_dim, model);
+    output_affix_lstm = LSTMBuilder(lstm_layer_count, config.affix_embedding_dim + context_dim, config.affix_lstm_dim, model);
   }
-  output_char_lstm = LSTMBuilder(lstm_layer_count, config.char_embedding_dim + config.main_lstm_dim, config.char_lstm_dim, model);
+  output_char_lstm = LSTMBuilder(lstm_layer_count, config.char_embedding_dim + context_dim, config.char_lstm_dim, model);
 }
 
 void MorphLM::NewGraph(ComputationGraph& cg) {
@@ -84,10 +89,16 @@ void MorphLM::NewGraph(ComputationGraph& cg) {
   }
   input_char_lstm.new_graph(cg);
 
-  Expression main_lstm_init_expr = parameter(cg, main_lstm_init);
-  main_lstm_init_v = MakeLSTMInitialState(main_lstm_init_expr, config.main_lstm_dim, lstm_layer_count);
+  Expression main_lstm_fwd_init_expr = parameter(cg, main_lstm_fwd_init);
+  main_lstm_fwd_init_v = MakeLSTMInitialState(main_lstm_fwd_init_expr, config.main_lstm_dim, lstm_layer_count);
+  main_lstm_fwd.new_graph(cg);
 
-  main_lstm.new_graph(cg);
+  if (config.bidirectional) {
+    Expression main_lstm_rev_init_expr = parameter(cg, main_lstm_rev_init);
+    main_lstm_rev_init_v = MakeLSTMInitialState(main_lstm_rev_init_expr, config.main_lstm_dim, lstm_layer_count);
+    main_lstm_rev.new_graph(cg);
+  }
+
   model_chooser.NewGraph(cg);
 
   if (config.use_words) {
@@ -139,17 +150,37 @@ vector<Expression> MorphLM::ShowModeProbs(const Sentence& sentence, ComputationG
   }
 
   vector<Expression> mode_exprs;
-  main_lstm.start_new_sequence(main_lstm_init_v);
+  vector<Expression> contexts = GetContexts(inputs, cg);
   for (unsigned i = 0; i < inputs.size(); ++i) {
-    Expression context = main_lstm.back();
+    Expression context = contexts[i];
     Expression mode_log_probs = log_softmax(model_chooser.Feed(context));
     mode_exprs.push_back(mode_log_probs);
-    main_lstm.add_input(inputs[i]);
   }
 
   assert (mode_exprs.size() == sentence.size());
 
   return mode_exprs;
+}
+
+vector<Expression> MorphLM::GetContexts(const vector<Expression>& inputs, ComputationGraph& cg) {
+  vector<Expression> context_vectors(inputs.size());
+  main_lstm_fwd.start_new_sequence(main_lstm_fwd_init_v);
+  for (unsigned i = 0; i < inputs.size(); ++i) {
+    Expression context = main_lstm_fwd.back();
+    context_vectors[i] = context;
+    main_lstm_fwd.add_input(inputs[i]);
+  }
+
+  if (config.bidirectional) {
+    main_lstm_rev.start_new_sequence(main_lstm_rev_init_v);
+    for (unsigned i = 0; i < inputs.size(); ++i) {
+      Expression context = main_lstm_rev.back();
+      context_vectors[i] = concatenate({context_vectors[i], context});
+      main_lstm_rev.add_input(inputs[inputs.size() - 1 - i]);
+    }
+  }
+
+  return context_vectors;
 }
 
 Expression MorphLM::BuildGraph(const Sentence& sentence, ComputationGraph& cg) {
@@ -162,15 +193,8 @@ Expression MorphLM::BuildGraph(const Sentence& sentence, ComputationGraph& cg) {
     inputs.push_back(input_embedding);
   }
 
-  vector<Expression> context_vectors(inputs.size());
-  main_lstm.start_new_sequence(main_lstm_init_v);
-  for (unsigned i = 0; i < inputs.size(); ++i) {
-    Expression context = main_lstm.back();
-    context_vectors[i] = context;
-    main_lstm.add_input(inputs[i]);
-  }
-
   vector<Expression> losses;
+  vector<Expression> context_vectors = GetContexts(inputs, cg);;
   for (unsigned i = 0; i < inputs.size(); ++i) {
     Expression& context = context_vectors[i];
     Expression mode_log_probs = log_softmax(model_chooser.Feed(context));
@@ -222,7 +246,10 @@ Expression MorphLM::BuildGraph(const Sentence& sentence, ComputationGraph& cg) {
 }
 
 void MorphLM::SetDropout(float r) {
-  main_lstm.set_dropout(r);
+  main_lstm_fwd.set_dropout(r);
+  if (config.bidirectional) {
+    main_lstm_rev.set_dropout(r);
+  }
   if (config.use_morphology) {
     input_affix_lstm.set_dropout(r);
     output_affix_lstm.set_dropout(r);
@@ -378,15 +405,16 @@ Analysis MorphLM::SampleMorphAnalysis(Expression context, unsigned max_length, C
 }
 
 Sentence MorphLM::Sample(unsigned max_length, ComputationGraph& cg, WordFillerOuter* wfo) {
+  assert (!config.bidirectional && "Sampling not supported in bidirectional mode!");
   random_device rd;
   mt19937 rng(rd());
   Sentence sentence;
 
   NewGraph(cg);
-  main_lstm.start_new_sequence(main_lstm_init_v);
+  main_lstm_fwd.start_new_sequence(main_lstm_fwd_init_v);
 
   for (unsigned word_index = 0; word_index <= max_length; ++word_index) {
-    Expression context = main_lstm.back();
+    Expression context = main_lstm_fwd.back();
     Expression mode_log_probs = log_softmax(model_chooser.Feed(context));
     vector<float> mode_log_prob_vals = as_vector(mode_log_probs.value());
     assert (!config.use_morphology); // HACK: For now this doesn't work with morphology-enabled models.
@@ -427,7 +455,7 @@ Sentence MorphLM::Sample(unsigned max_length, ComputationGraph& cg, WordFillerOu
       //wfo->FillFromWord(sentence);
     }
     Expression input_embedding = EmbedInput(sentence, word_index, cg);
-    main_lstm.add_input(input_embedding);
+    main_lstm_fwd.add_input(input_embedding);
   }
   return sentence;
 }
