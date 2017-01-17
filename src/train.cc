@@ -63,6 +63,12 @@ void ctrlc_handler(int signal) {
 
 int main(int argc, char** argv) {
   signal (SIGINT, ctrlc_handler);
+  cerr << "Invoked as:";
+  for (int i = 0; i < argc; ++i) {
+    cerr << " " << argv[i];
+  }
+  cerr << "\n";
+
   dynet::initialize(argc, argv, true);
 
   po::options_description desc("description");
