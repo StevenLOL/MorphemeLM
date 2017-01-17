@@ -162,10 +162,17 @@ Expression MorphLM::BuildGraph(const Sentence& sentence, ComputationGraph& cg) {
     inputs.push_back(input_embedding);
   }
 
-  vector<Expression> losses;
+  vector<Expression> context_vectors(inputs.size());
   main_lstm.start_new_sequence(main_lstm_init_v);
   for (unsigned i = 0; i < inputs.size(); ++i) {
     Expression context = main_lstm.back();
+    context_vectors[i] = context;
+    main_lstm.add_input(inputs[i]);
+  }
+
+  vector<Expression> losses;
+  for (unsigned i = 0; i < inputs.size(); ++i) {
+    Expression& context = context_vectors[i];
     Expression mode_log_probs = log_softmax(model_chooser.Feed(context));
     if (i == inputs.size() - 1) {
       assert (sentence.words[i] == 2); // </s>
@@ -207,7 +214,6 @@ Expression MorphLM::BuildGraph(const Sentence& sentence, ComputationGraph& cg) {
     Expression total_loss = -logsumexp(mode_losses);
 
     losses.push_back(total_loss);
-    main_lstm.add_input(inputs[i]);
   }
 
   assert (losses.size() == sentence.size());
