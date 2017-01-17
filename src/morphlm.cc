@@ -174,9 +174,10 @@ vector<Expression> MorphLM::GetContexts(const vector<Expression>& inputs, Comput
   if (config.bidirectional) {
     main_lstm_rev.start_new_sequence(main_lstm_rev_init_v);
     for (unsigned i = 0; i < inputs.size(); ++i) {
+      unsigned j = inputs.size() - 1 - i;
       Expression context = main_lstm_rev.back();
-      context_vectors[i] = concatenate({context_vectors[i], context});
-      main_lstm_rev.add_input(inputs[inputs.size() - 1 - i]);
+      context_vectors[j] = concatenate({context_vectors[j], context});
+      main_lstm_rev.add_input(inputs[j]);
     }
   }
 
