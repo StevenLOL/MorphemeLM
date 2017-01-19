@@ -3,14 +3,15 @@
 #include <map>
 #include <string>
 #include <tuple>
+#include <random>
 #include <boost/archive/text_iarchive.hpp>
 #include <boost/archive/text_oarchive.hpp>
 #include <boost/archive/binary_iarchive.hpp>
 #include <boost/archive/binary_oarchive.hpp>
-#include "cnn/dict.h"
+#include "dynet/dict.h"
 
 using namespace std;
-using namespace cnn;
+using namespace dynet;
 
 typedef int WordId;
 

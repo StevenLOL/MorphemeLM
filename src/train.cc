@@ -1,15 +1,15 @@
 #include "train.h"
 
-using namespace cnn;
-using namespace cnn::expr;
-using namespace cnn::mp;
+using namespace dynet;
+using namespace dynet::expr;
+using namespace dynet::mp;
 using namespace std;
 namespace po = boost::program_options;
 
 class Learner : public ILearner<Sentence, SufficientStats> {
 public:
-  Learner(Dict& word_vocab, Dict& root_vocab, Dict& affix_vocab, Dict& char_vocab, MorphLM& lm, Model& cnn_model) :
-    word_vocab(word_vocab), root_vocab(root_vocab), affix_vocab(affix_vocab), char_vocab(char_vocab), lm(lm), cnn_model(cnn_model) {}
+  Learner(Dict& word_vocab, Dict& root_vocab, Dict& affix_vocab, Dict& char_vocab, MorphLM& lm, Model& dynet_model) :
+    word_vocab(word_vocab), root_vocab(root_vocab), affix_vocab(affix_vocab), char_vocab(char_vocab), lm(lm), dynet_model(dynet_model) {}
   ~Learner() {}
   SufficientStats LearnFromDatum(const Sentence& datum, bool learn) {
     ComputationGraph cg;
@@ -19,17 +19,17 @@ public:
     else {
       lm.SetDropout(0.0f);
     }
-    lm.BuildGraph(datum, cg);
-    cnn::real loss = as_scalar(cg.forward());
+    Expression loss_expr = lm.BuildGraph(datum, cg);
+    dynet::real loss = as_scalar(cg.forward(loss_expr));
     if (learn) {
-      cg.backward();
+      cg.backward(loss_expr);
     }
     return SufficientStats(loss, datum.size(), 1);
   }
 
   void SaveModel() {
     if (!quiet) {
-      Serialize(word_vocab, root_vocab, affix_vocab, char_vocab, lm, cnn_model);
+      Serialize(word_vocab, root_vocab, affix_vocab, char_vocab, lm, dynet_model);
     }
   }
 
@@ -41,7 +41,7 @@ private:
   Dict& affix_vocab;
   Dict& char_vocab;
   MorphLM& lm;
-  Model& cnn_model;
+  Model& dynet_model;
 };
 
 // This function lets us elegantly handle the user pressing ctrl-c.
@@ -57,13 +57,19 @@ void ctrlc_handler(int signal) {
   else {
     cerr << "Ctrl-c pressed!" << endl;
     ctrlc_pressed = true;
-    cnn::mp::stop_requested = true;
+    dynet::mp::stop_requested = true;
   }
 }
 
 int main(int argc, char** argv) {
   signal (SIGINT, ctrlc_handler);
-  cnn::Initialize(argc, argv, true);
+  cerr << "Invoked as:";
+  for (int i = 0; i < argc; ++i) {
+    cerr << " " << argv[i];
+  }
+  cerr << "\n";
+
+  dynet::initialize(argc, argv, true);
 
   po::options_description desc("description");
   desc.add_options()
@@ -72,6 +78,7 @@ int main(int argc, char** argv) {
   ("dev_text", po::value<string>()->required(), "Dev text, used for early stopping")
   ("word_vocab", po::value<string>()->required(), "Surface form vocab list of words. Anything outside this list must be generated via morphology or characters")
   ("root_vocab", po::value<string>()->required(), "Vocabulary of word stems. Anything outside this list must be generated as a character stream (or maybe as whole words, but probably not)")
+  ("char_vocab", po::value<string>()->required(), "Vocabulary of characters. Anything outside this list is replaced with an UNK character")
   ("num_iterations,i", po::value<unsigned>()->default_value(UINT_MAX), "Number of epochs to train for")
   ("cores,j", po::value<unsigned>()->default_value(1), "Number of CPU cores to use for training")
   ("dropout_rate", po::value<float>()->default_value(0.0), "Dropout rate (should be >= 0.0 and < 1)")
@@ -104,16 +111,17 @@ int main(int argc, char** argv) {
   const string dev_text_filename = vm["dev_text"].as<string>();
   const string word_vocab_filename = vm["word_vocab"].as<string>();
   const string root_vocab_filename = vm["root_vocab"].as<string>();
+  const string char_vocab_filename = vm["char_vocab"].as<string>();
 
   Dict word_vocab, root_vocab, affix_vocab, char_vocab;
-  Model cnn_model;
+  Model dynet_model;
   MorphLM* lm = nullptr;
   Trainer* trainer = nullptr;
 
   if (vm.count("model")) {
     lm = new MorphLM();
     string model_filename = vm["model"].as<string>();
-    Deserialize(model_filename, word_vocab, root_vocab, affix_vocab, char_vocab, *lm, cnn_model);
+    Deserialize(model_filename, word_vocab, root_vocab, affix_vocab, char_vocab, *lm, dynet_model);
     assert (word_vocab.is_frozen());
     assert (root_vocab.is_frozen());
     assert (affix_vocab.is_frozen());
@@ -121,25 +129,28 @@ int main(int argc, char** argv) {
   }
 
   // TODO: Do we need start symbols at all?
-  word_vocab.Convert("UNK");
-  word_vocab.Convert("<s>");
-  word_vocab.Convert("</s>");
-  root_vocab.Convert("UNK");
-  root_vocab.Convert("<s>");
-  root_vocab.Convert("</s>");
-  char_vocab.Convert("UNK");
-  char_vocab.Convert("<s>");
-  char_vocab.Convert("</s>");
-  char_vocab.Convert("</w>");
-  affix_vocab.Convert("UNK");
-  affix_vocab.Convert("</w>");
+  word_vocab.convert("UNK");
+  word_vocab.convert("<s>");
+  word_vocab.convert("</s>");
+  root_vocab.convert("UNK");
+  root_vocab.convert("<s>");
+  root_vocab.convert("</s>");
+  char_vocab.convert("UNK");
+  char_vocab.convert("<s>");
+  char_vocab.convert("</s>");
+  char_vocab.convert("</w>");
+  affix_vocab.convert("UNK");
+  affix_vocab.convert("</w>");
 
   ReadVocab(word_vocab_filename, word_vocab);
   ReadVocab(root_vocab_filename, root_vocab);
-  word_vocab.Freeze();
-  word_vocab.SetUnk("UNK");
-  root_vocab.Freeze();
-  root_vocab.SetUnk("UNK");
+  ReadVocab(char_vocab_filename, char_vocab);
+  word_vocab.freeze();
+  word_vocab.set_unk("UNK");
+  root_vocab.freeze();
+  root_vocab.set_unk("UNK");
+  char_vocab.freeze();
+  char_vocab.set_unk("UNK");
 
   vector<Sentence> train_text = ReadMorphText(train_text_filename, word_vocab, root_vocab, affix_vocab, char_vocab); 
 
@@ -162,31 +173,29 @@ int main(int argc, char** argv) {
     config.affix_lstm_dim = 128; // 1 16 128
     config.char_lstm_dim = 64; // 1 16 64
     // Maybe only need 1 layer on input LSTMs
-    lm = new MorphLM(cnn_model, config);
+    lm = new MorphLM(dynet_model, config);
 
-    affix_vocab.Freeze();
-    affix_vocab.SetUnk("UNK");
-    char_vocab.Freeze();
-    char_vocab.SetUnk("UNK");
+    affix_vocab.freeze();
+    affix_vocab.set_unk("UNK");
     cerr << "Dicts frozen" << endl;
   }
 
   vector<Sentence> dev_text = ReadMorphText(dev_text_filename, word_vocab, root_vocab, affix_vocab, char_vocab);
 
   cerr << "Vocabulary sizes: " << word_vocab.size() << " words, " << root_vocab.size() << " roots, " << affix_vocab.size() << " affixes, " << char_vocab.size() << " chars" << endl;
-  cerr << "Total parameters: " << cnn_model.parameter_count() << endl;
+  cerr << "Total parameters: " << dynet_model.parameter_count() << endl;
 
-  trainer = CreateTrainer(cnn_model, vm);
-  Learner learner(word_vocab, root_vocab, affix_vocab, char_vocab, *lm, cnn_model);
+  trainer = CreateTrainer(dynet_model, vm);
+  Learner learner(word_vocab, root_vocab, affix_vocab, char_vocab, *lm, dynet_model);
   learner.quiet = vm.count("quiet") > 0;
   learner.dropout_rate = vm["dropout_rate"].as<float>();
   unsigned dev_frequency = vm["dev_frequency"].as<unsigned>();
   unsigned report_frequency = vm["report_frequency"].as<unsigned>();
   if (num_cores > 1) {
-    RunMultiProcess<Sentence>(num_cores, &learner, trainer, train_text, dev_text, num_iterations, dev_frequency, report_frequency);
+    run_multi_process<Sentence>(num_cores, &learner, trainer, train_text, dev_text, num_iterations, dev_frequency, report_frequency);
   }
   else {
-    RunSingleProcess<Sentence>(&learner, trainer, train_text, dev_text, num_iterations, dev_frequency, report_frequency);
+    run_single_process<Sentence>(&learner, trainer, train_text, dev_text, num_iterations, dev_frequency, report_frequency, 1);
   }
 
   return 0;

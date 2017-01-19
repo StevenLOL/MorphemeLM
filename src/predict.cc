@@ -1,4 +1,4 @@
-#include "cnn/cnn.h"
+#include "dynet/dynet.h"
 
 #include <boost/program_options.hpp>
 
@@ -9,12 +9,12 @@
 #include "kbestlist.h"
 #include "utils.h"
 
-using namespace cnn;
+using namespace dynet;
 using namespace std;
 namespace po = boost::program_options;
 
 int main(int argc, char** argv) {
-  cnn::Initialize(argc, argv);
+  dynet::initialize(argc, argv);
 
   po::options_description desc("description");
   desc.add_options()
@@ -42,10 +42,10 @@ int main(int argc, char** argv) {
   const unsigned max_length = vm["max_length"].as<unsigned>();
   const unsigned kbest_size = vm["kbest_size"].as<unsigned>();
 
-  Model cnn_model;
+  Model dynet_model;
   Translator translator;
   vector<Dict*> dicts;
-  Deserialize(model_filename, dicts, translator, cnn_model);
+  Deserialize(model_filename, dicts, translator, dynet_model);
 
   Dict* source_vocab = dicts[0];
   Dict* target_vocab = dicts[1];
