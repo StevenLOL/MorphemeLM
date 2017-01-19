@@ -49,7 +49,7 @@ int main(int argc, char** argv) {
     for (unsigned i = 0; i < input.words.size(); ++i) {
       if (i > 0) { cerr << " "; }
       for (unsigned j = 0; j < input.chars[i].size() - 1; ++j) {
-        cerr << char_vocab.Convert(input.chars[i][j]);
+        cerr << char_vocab.convert(input.chars[i][j]);
       }
     }
     cerr << endl;
