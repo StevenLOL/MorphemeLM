@@ -17,6 +17,7 @@ int main(int argc, char** argv) {
   po::options_description desc("description");
   desc.add_options()
   ("model", po::value<string>()->required(), "model files, as output by train")
+  ("posterior,p", "Show model posterior distributions instead of priors")
   ("help", "Display this help message");
 
   po::positional_options_description positional_options;
@@ -33,6 +34,7 @@ int main(int argc, char** argv) {
   po::notify(vm);
 
   const string model_filename = vm["model"].as<string>();
+  const bool show_posterior = vm.count("posterior") > 0;
 
   Model cnn_model;
   Dict word_vocab, root_vocab, affix_vocab, char_vocab;
@@ -44,8 +46,15 @@ int main(int argc, char** argv) {
   unsigned sentence_number = 0;
   Sentence input;
   while(ReadMorphSentence(cin, word_vocab, root_vocab, affix_vocab, char_vocab, input)) {
+    for (unsigned i = 0; i < input.words.size(); ++i) {
+      if (i > 0) { cerr << " "; }
+      for (unsigned j = 0; j < input.chars[i].size() - 1; ++j) {
+        cerr << char_vocab.Convert(input.chars[i][j]);
+      }
+    }
+    cerr << endl;
     ComputationGraph cg;
-    vector<Expression> mode_log_probs = lm.ShowModeProbs(input, cg);
+    vector<Expression> mode_log_probs = show_posterior ? lm.ShowModePosteriors(input, cg) : lm.ShowModeProbs(input, cg);
     cg.incremental_forward();
     for (Expression e : mode_log_probs) {
       vector<float> v = as_vector(e.value());
