@@ -48,13 +48,20 @@ int main(int argc, char** argv) {
   assert (affix_vocab.is_frozen());
   assert (char_vocab.is_frozen());
 
+  WordFillerOuter* wfo = new WordFillerOuter(
+  lm.config.use_words ? &word_vocab : nullptr,
+  lm.config.use_morphology ? &root_vocab : nullptr,
+  lm.config.use_morphology ? &root_vocab : nullptr,
+  &char_vocab);
+
   while (true) {
     ComputationGraph cg;
-    Sentence sample = lm.Sample(max_length, cg);
+    Sentence sample = lm.Sample(max_length, cg, wfo);
     vector<string> words;
     for (unsigned i = 0; i < sample.size(); ++i) {
       if (sample.chars[i].size() > 0) {
-        for (unsigned j = 0; j < sample.chars[i].size(); ++j) {
+        assert (sample.chars[i].back() == char_vocab.convert("</w>"));
+        for (unsigned j = 0; j < sample.chars[i].size() - 1; ++j) {
           cout << char_vocab.convert(sample.chars[i][j]);
         }
       }

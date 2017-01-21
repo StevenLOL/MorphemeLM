@@ -77,34 +77,34 @@ Trainer* CreateTrainer(Model& dynet_model, const po::variables_map& vm) {
   if (vm.count("momentum")) {
     double learning_rate = (vm.count("learning_rate")) ? vm["learning_rate"].as<double>() : 0.01;
     double momentum = vm["momentum"].as<double>();
-    trainer = new MomentumSGDTrainer(&dynet_model, learning_rate, momentum);
+    trainer = new MomentumSGDTrainer(dynet_model, learning_rate, momentum, 0.0);
   }
   else if (vm.count("adagrad")) {
     double learning_rate = (vm.count("learning_rate")) ? vm["learning_rate"].as<double>() : 0.1;
     double eps = (vm.count("epsilon")) ? vm["epsilon"].as<double>() : 1e-20;
-    trainer = new AdagradTrainer(&dynet_model, learning_rate, eps);
+    trainer = new AdagradTrainer(dynet_model, learning_rate, eps, 0.0);
   }
   else if (vm.count("adadelta")) {
     double eps = (vm.count("epsilon")) ? vm["epsilon"].as<double>() : 1e-6;
     double rho = (vm.count("rho")) ? vm["rho"].as<double>() : 0.95;
-    trainer = new AdadeltaTrainer(&dynet_model, eps, rho);
+    trainer = new AdadeltaTrainer(dynet_model, eps, rho, 0.0);
   }
   else if (vm.count("rmsprop")) {
     double learning_rate = (vm.count("learning_rate")) ? vm["learning_rate"].as<double>() : 0.1;
     double eps = (vm.count("epsilon")) ? vm["epsilon"].as<double>() : 1e-20;
     double rho = (vm.count("rho")) ? vm["rho"].as<double>() : 0.95;
-    trainer = new RmsPropTrainer(&dynet_model, learning_rate, eps, rho);
+    trainer = new RmsPropTrainer(dynet_model, learning_rate, eps, rho, 0.0);
   }
   else if (vm.count("adam")) {
     double alpha = (vm.count("alpha")) ? vm["alpha"].as<double>() : 0.001;
     double beta1 = (vm.count("beta1")) ? vm["beta1"].as<double>() : 0.9;
     double beta2 = (vm.count("beta2")) ? vm["beta2"].as<double>() : 0.999;
     double eps = (vm.count("epsilon")) ? vm["epsilon"].as<double>() : 1e-8;
-    trainer = new AdamTrainer(&dynet_model, alpha, beta1, beta2, eps);
+    trainer = new AdamTrainer(dynet_model, alpha, beta1, beta2, eps, 0.0);
   }
   else { /* sgd */
     double learning_rate = (vm.count("learning_rate")) ? vm["learning_rate"].as<double>() : 0.1;
-    trainer = new SimpleSGDTrainer(&dynet_model, learning_rate);
+    trainer = new SimpleSGDTrainer(dynet_model, learning_rate, 0.0);
   }
   assert (trainer != nullptr);
 

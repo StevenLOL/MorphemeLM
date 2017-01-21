@@ -4,6 +4,8 @@
 bool ReadVocab(const string& filename, Dict& vocab) {
   ifstream f(filename);
   if (!f.is_open()) {
+    cerr << "Error reading vocab file " << filename << endl;
+    assert (f.is_open());
     return false;
   }
 
@@ -102,7 +104,8 @@ vector<Sentence> ReadMorphText(const string& filename, Dict& word_vocab, Dict& r
   Sentence current;
 
   ifstream f(filename);
-  for (string line; getline(f, line);) {
+  unsigned line_number = 1;
+  for (string line; getline(f, line); ++line_number) {
     line = strip(line);
     if (line.length() == 0) {
       current.words.push_back(word_vocab.convert("</s>"));
@@ -123,6 +126,10 @@ vector<Sentence> ReadMorphText(const string& filename, Dict& word_vocab, Dict& r
     }
 
     vector<string> pieces = tokenize(line, "\t");
+    if (pieces.size() % 2 != 1) {
+      cerr << "Issue in " << filename << " on line " << line_number << "." << endl;
+      cerr << "Offending line: " << line << " (" << pieces.size() << " pieces)" << endl;
+    }
     assert (pieces.size() % 2 == 1);
     assert (pieces.size() >= 3);
 
