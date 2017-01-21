@@ -4,8 +4,8 @@ EIGEN = ./eigen
 CNN_BUILD_DIR=$(CNN_DIR)/build
 INCS=-I$(CNN_DIR) -I$(CNN_BUILD_DIR) -I$(EIGEN)
 LIBS=-L$(CNN_BUILD_DIR)/dynet/
-FINAL=-ldynet -lboost_regex -lboost_serialization -lboost_program_options -lrt -lpthread
-#FINAL=-lgdynet -ldynetcuda -lboost_regex -lboost_serialization -lboost_program_options -lcuda -lcudart -lcublas -lpthread -lrt
+FINAL=-ldynet -lboost_regex -lboost_serialization -lboost_program_options -lboost_iostreams -lrt -lpthread
+#FINAL=-lgdynet -ldynetcuda -lboost_regex -lboost_serialization -lboost_program_options -lboost_iostreams -lcuda -lcudart -lcublas -lpthread -lrt
 CFLAGS=-std=c++11 -Ofast -g -march=native -pipe
 #CFLAGS=-std=c++11 -Wall -pedantic -O0 -g -pipe -DDEBUG
 BINDIR=bin
@@ -13,7 +13,7 @@ OBJDIR=obj
 SRCDIR=src
 
 .PHONY: clean
-all: make_dirs $(BINDIR)/train $(BINDIR)/sample $(BINDIR)/loss $(BINDIR)/modes
+all: make_dirs $(BINDIR)/train $(BINDIR)/sample $(BINDIR)/loss $(BINDIR)/modes $(BINDIR)/sandbox
 
 make_dirs:
 	mkdir -p $(OBJDIR)
@@ -35,6 +35,9 @@ $(BINDIR)/sample: $(addprefix $(OBJDIR)/, sample.o mlp.o io.o morphlm.o utils.o)
 	$(CC) $(CFLAGS) $(LIBS) $(INCS) $^ -o $@ $(FINAL)
 
 $(BINDIR)/loss: $(addprefix $(OBJDIR)/, loss.o mlp.o io.o morphlm.o utils.o)
+	$(CC) $(CFLAGS) $(LIBS) $(INCS) $^ -o $@ $(FINAL)
+
+$(BINDIR)/sandbox: $(addprefix $(OBJDIR)/, sandbox.o)
 	$(CC) $(CFLAGS) $(LIBS) $(INCS) $^ -o $@ $(FINAL)
 
 clean:
