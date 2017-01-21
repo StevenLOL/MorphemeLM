@@ -79,6 +79,7 @@ int main(int argc, char** argv) {
   ("word_vocab", po::value<string>()->required(), "Surface form vocab list of words. Anything outside this list must be generated via morphology or characters")
   ("root_vocab", po::value<string>()->required(), "Vocabulary of word stems. Anything outside this list must be generated as a character stream (or maybe as whole words, but probably not)")
   ("char_vocab", po::value<string>()->required(), "Vocabulary of characters. Anything outside this list is replaced with an UNK character")
+  ("bidir", "Use bidirectional model (e.g. for morphological disambiguation). This is no longer a real language model.")
   ("num_iterations,i", po::value<unsigned>()->default_value(UINT_MAX), "Number of epochs to train for")
   ("cores,j", po::value<unsigned>()->default_value(1), "Number of CPU cores to use for training")
   ("dropout_rate", po::value<float>()->default_value(0.0), "Dropout rate (should be >= 0.0 and < 1)")
@@ -156,6 +157,7 @@ int main(int argc, char** argv) {
 
   if (!vm.count("model")) {
     MorphLMConfig config;
+    config.bidirectional = (vm.count("bidir") != 0);
     config.use_words = (vm.count("no_words") == 0);
     config.use_morphology = (vm.count("no_morphology") == 0);
     config.word_vocab_size = word_vocab.size();
