@@ -84,6 +84,7 @@ public:
   void NewGraph(ComputationGraph& cg);
   vector<Expression> ShowModeProbs(const Sentence& sentence, ComputationGraph& cg);
   vector<Expression> GetContexts(const vector<Expression>& inputs, ComputationGraph& cg);
+  vector<Expression> ShowModePosteriors(const Sentence& sentence, ComputationGraph& cg);
   Expression BuildGraph(const Sentence& sentence, ComputationGraph& cg);
   void SetDropout(float r);
 

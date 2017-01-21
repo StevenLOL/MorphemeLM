@@ -184,6 +184,47 @@ vector<Expression> MorphLM::GetContexts(const vector<Expression>& inputs, Comput
   return context_vectors;
 }
 
+vector<Expression> MorphLM::ShowModePosteriors(const Sentence& sentence, ComputationGraph& cg) {
+  assert (sentence.size() > 0);
+  NewGraph(cg);
+
+  vector<Expression> inputs;
+  for (unsigned i = 0; i < sentence.size(); ++i) {
+    Expression input_embedding = EmbedInput(sentence, i, cg);
+    inputs.push_back(input_embedding);
+  }
+
+  vector<Expression> mode_logprobs;
+  vector<Expression> contexts = GetContexts(inputs, cg);
+  for (unsigned i = 0; i < inputs.size(); ++i) {
+    Expression context = contexts[i];
+
+    vector<Expression> mode_losses;
+    Expression char_loss = -ComputeCharLoss(context, sentence.chars[i], cg);
+    mode_losses.push_back(char_loss);
+
+    if (config.use_morphology) {
+      if (sentence.analyses[i].size() > 0 and sentence.analyses[i][0].root != 0) {
+        Expression morpheme_loss = -ComputeMorphemeLoss(context, sentence.analyses[i], sentence.analysis_probs[i], cg);
+        mode_losses.push_back(morpheme_loss);
+      }
+    }
+
+    if (config.use_words) {
+      if (sentence.words[i] != 0) {
+        Expression word_loss = -ComputeWordLoss(context, sentence.words[i], cg);
+        mode_losses.push_back(word_loss);
+      }
+    }
+    Expression total = concatenate(vector<Expression>(mode_losses.size(), logsumexp(mode_losses)));
+    mode_logprobs.push_back(concatenate(mode_losses) - total);
+  }
+
+  assert (mode_logprobs.size() == sentence.size());
+
+  return mode_logprobs;
+}
+
 Expression MorphLM::BuildGraph(const Sentence& sentence, ComputationGraph& cg) {
   assert (sentence.size() > 0);
   NewGraph(cg);
