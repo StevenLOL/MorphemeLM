@@ -75,6 +75,7 @@ public:
   Expression EmbedAnalyses(const vector<Analysis>& analyses, const vector<float>& probs, ComputationGraph& cg);
   Expression EmbedCharacterSequence(const vector<WordId>& chars, ComputationGraph& cg);
   Expression EmbedInput(const Sentence& sentence, unsigned i, ComputationGraph& cg);
+  vector<Expression> EmbedSentence(const Sentence& sentence, ComputationGraph& cg);
 
   Expression ComputeWordLoss(Expression context, WordId ref, ComputationGraph& cg);
   Expression ComputeAnalysisLoss(Expression context, const Analysis& ref, ComputationGraph& cg);

@@ -126,15 +126,20 @@ Expression MorphLM::EmbedInput(const Sentence& sentence, unsigned i, Computation
   return input_embedding;
 }
 
-vector<Expression> MorphLM::ShowModeProbs(const Sentence& sentence, ComputationGraph& cg) {
-  assert (sentence.size() > 0);
-  NewGraph(cg);
-
+vector<Expression> MorphLM::EmbedSentence(const Sentence& sentence, ComputationGraph& cg) {
   vector<Expression> inputs;
   for (unsigned i = 0; i < sentence.size(); ++i) {
     Expression input_embedding = EmbedInput(sentence, i, cg);
     inputs.push_back(input_embedding);
   }
+  return inputs;
+}
+
+vector<Expression> MorphLM::ShowModeProbs(const Sentence& sentence, ComputationGraph& cg) {
+  assert (sentence.size() > 0);
+  NewGraph(cg);
+
+  vector<Expression> inputs = EmbedSentence(sentence, cg);
 
   vector<Expression> mode_exprs;
   main_lstm.start_new_sequence(main_lstm_init_v);
@@ -154,11 +159,7 @@ Expression MorphLM::BuildGraph(const Sentence& sentence, ComputationGraph& cg) {
   assert (sentence.size() > 0);
   NewGraph(cg);
 
-  vector<Expression> inputs;
-  for (unsigned i = 0; i < sentence.size(); ++i) {
-    Expression input_embedding = EmbedInput(sentence, i, cg);
-    inputs.push_back(input_embedding);
-  }
+  vector<Expression> inputs = EmbedSentence(sentence, cg);
 
   vector<Expression> losses;
   main_lstm.start_new_sequence(main_lstm_init_v);
@@ -187,7 +188,7 @@ Expression MorphLM::BuildGraph(const Sentence& sentence, ComputationGraph& cg) {
     mode_losses.push_back(char_loss);
 
     if (config.use_morphology) {
-      if (sentence.analyses[i].size() > 0 and sentence.analyses[i][0].root != 0) {
+      if (sentence.analyses[i].size() > 0 && sentence.analyses[i][0].root != 0) {
         Expression morpheme_loss = ComputeMorphemeLoss(context, sentence.analyses[i], sentence.analysis_probs[i], cg);
         morpheme_loss = pick(mode_log_probs, mode_index++) - morpheme_loss;
         mode_losses.push_back(morpheme_loss);
