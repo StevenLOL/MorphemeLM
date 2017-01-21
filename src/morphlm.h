@@ -81,6 +81,7 @@ public:
 
   void NewGraph(ComputationGraph& cg);
   vector<Expression> ShowModeProbs(const Sentence& sentence, ComputationGraph& cg);
+  vector<Expression> ShowModePosteriors(const Sentence& sentence, ComputationGraph& cg);
   Expression BuildGraph(const Sentence& sentence, ComputationGraph& cg);
   void SetDropout(float r);
 
@@ -101,7 +102,7 @@ public:
 
 public:
   MorphLMConfig config;
-private:
+//private:
   LookupParameter input_word_embeddings;
   LookupParameter input_root_embeddings;
   LookupParameter input_affix_embeddings;

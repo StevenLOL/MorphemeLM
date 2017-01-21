@@ -1,5 +1,5 @@
 CC=g++
-CNN_DIR = ./cnn
+CNN_DIR = ./dynet
 EIGEN = ./eigen
 CNN_BUILD_DIR=$(CNN_DIR)/build
 INCS=-I$(CNN_DIR) -I$(CNN_BUILD_DIR) -I$(EIGEN)
@@ -13,7 +13,7 @@ OBJDIR=obj
 SRCDIR=src
 
 .PHONY: clean
-all: make_dirs $(BINDIR)/train $(BINDIR)/sample $(BINDIR)/loss $(BINDIR)/modes $(BINDIR)/sandbox
+all: make_dirs $(BINDIR)/train $(BINDIR)/sample $(BINDIR)/loss $(BINDIR)/modes $(BINDIR)/disambig $(BINDIR)/sandbox
 
 make_dirs:
 	mkdir -p $(OBJDIR)
@@ -29,6 +29,9 @@ $(BINDIR)/train: $(addprefix $(OBJDIR)/, train.o mlp.o io.o morphlm.o utils.o)
 	$(CC) $(CFLAGS) $(LIBS) $(INCS) $^ -o $@ $(FINAL)
 
 $(BINDIR)/modes: $(addprefix $(OBJDIR)/, modes.o mlp.o io.o morphlm.o utils.o)
+	$(CC) $(CFLAGS) $(LIBS) $(INCS) $^ -o $@ $(FINAL)
+
+$(BINDIR)/disambig: $(addprefix $(OBJDIR)/, disambig.o mlp.o io.o morphlm.o utils.o)
 	$(CC) $(CFLAGS) $(LIBS) $(INCS) $^ -o $@ $(FINAL)
 
 $(BINDIR)/sample: $(addprefix $(OBJDIR)/, sample.o mlp.o io.o morphlm.o utils.o)

@@ -30,9 +30,9 @@ MorphLM::MorphLM(Model& model, const MorphLMConfig& config) :
   input_char_lstm_init = model.add_parameters({lstm_layer_count * config.char_lstm_dim});
 
   if (config.use_morphology) {
-    input_affix_lstm = LSTMBuilder(lstm_layer_count, config.affix_embedding_dim, config.affix_lstm_dim, &model);
+    input_affix_lstm = LSTMBuilder(lstm_layer_count, config.affix_embedding_dim, config.affix_lstm_dim, model);
   }
-  input_char_lstm = LSTMBuilder(lstm_layer_count, config.char_embedding_dim, config.char_lstm_dim, &model);
+  input_char_lstm = LSTMBuilder(lstm_layer_count, config.char_embedding_dim, config.char_lstm_dim, model);
 
   unsigned total_input_dim = config.char_lstm_dim;
   unsigned output_mode_count = 2; // char-level or EOS
@@ -46,17 +46,17 @@ MorphLM::MorphLM(Model& model, const MorphLMConfig& config) :
   }
 
   main_lstm_init = model.add_parameters({lstm_layer_count * config.main_lstm_dim});
-  main_lstm = LSTMBuilder(lstm_layer_count, total_input_dim, config.main_lstm_dim, &model);
+  main_lstm = LSTMBuilder(lstm_layer_count, total_input_dim, config.main_lstm_dim, model);
   model_chooser = MLP(model, config.main_lstm_dim, config.model_chooser_hidden_dim, output_mode_count);
 
   if (config.use_words) {
-    word_softmax = new StandardSoftmaxBuilder(config.main_lstm_dim, config.word_vocab_size, &model);
+    word_softmax = new StandardSoftmaxBuilder(config.main_lstm_dim, config.word_vocab_size, model);
   }
   if (config.use_morphology) {
-    root_softmax = new StandardSoftmaxBuilder(config.main_lstm_dim, config.root_vocab_size, &model);
-    affix_softmax = new StandardSoftmaxBuilder(config.affix_lstm_dim, config.affix_vocab_size, &model);
+    root_softmax = new StandardSoftmaxBuilder(config.main_lstm_dim, config.root_vocab_size, model);
+    affix_softmax = new StandardSoftmaxBuilder(config.affix_lstm_dim, config.affix_vocab_size, model);
   }
-  char_softmax = new StandardSoftmaxBuilder(config.char_lstm_dim, config.char_vocab_size, &model);
+  char_softmax = new StandardSoftmaxBuilder(config.char_lstm_dim, config.char_vocab_size, model);
 
   if (config.use_morphology) {
     output_root_embeddings = model.add_lookup_parameters(config.root_vocab_size, {config.root_embedding_dim});
@@ -70,9 +70,9 @@ MorphLM::MorphLM(Model& model, const MorphLMConfig& config) :
   }
 
   if (config.use_morphology) {
-    output_affix_lstm = LSTMBuilder(lstm_layer_count, config.affix_embedding_dim + config.main_lstm_dim, config.affix_lstm_dim, &model);
+    output_affix_lstm = LSTMBuilder(lstm_layer_count, config.affix_embedding_dim + config.main_lstm_dim, config.affix_lstm_dim, model);
   }
-  output_char_lstm = LSTMBuilder(lstm_layer_count, config.char_embedding_dim + config.main_lstm_dim, config.char_lstm_dim, &model);
+  output_char_lstm = LSTMBuilder(lstm_layer_count, config.char_embedding_dim + config.main_lstm_dim, config.char_lstm_dim, model);
 }
 
 void MorphLM::NewGraph(ComputationGraph& cg) {
@@ -152,6 +152,49 @@ vector<Expression> MorphLM::ShowModeProbs(const Sentence& sentence, ComputationG
   return mode_exprs;
 }
 
+vector<Expression> MorphLM::ShowModePosteriors(const Sentence& sentence, ComputationGraph& cg) {
+  assert (sentence.size() > 0);
+  NewGraph(cg);
+
+  vector<Expression> inputs;
+  for (unsigned i = 0; i < sentence.size(); ++i) {
+    Expression input_embedding = EmbedInput(sentence, i, cg);
+    inputs.push_back(input_embedding);
+  }
+
+  vector<Expression> mode_logprobs;
+  main_lstm.start_new_sequence(main_lstm_init_v);
+  for (unsigned i = 0; i < inputs.size(); ++i) {
+    Expression context = main_lstm.back();
+
+    vector<Expression> mode_losses;
+    Expression char_loss = -ComputeCharLoss(context, sentence.chars[i], cg);
+    mode_losses.push_back(char_loss);
+
+    if (config.use_morphology) {
+      if (sentence.analyses[i].size() > 0 and sentence.analyses[i][0].root != 0) {
+        Expression morpheme_loss = -ComputeMorphemeLoss(context, sentence.analyses[i], sentence.analysis_probs[i], cg);
+        mode_losses.push_back(morpheme_loss);
+      }
+    }
+
+    if (config.use_words) {
+      if (sentence.words[i] != 0) {
+        Expression word_loss = -ComputeWordLoss(context, sentence.words[i], cg);
+        mode_losses.push_back(word_loss);
+      }
+    }
+    Expression total = concatenate(vector<Expression>(mode_losses.size(), logsumexp(mode_losses)));
+    mode_logprobs.push_back(concatenate(mode_losses) - total);
+
+    main_lstm.add_input(inputs[i]);
+  }
+
+  assert (mode_logprobs.size() == sentence.size());
+
+  return mode_logprobs;
+}
+
 Expression MorphLM::BuildGraph(const Sentence& sentence, ComputationGraph& cg) {
   assert (sentence.size() > 0);
   NewGraph(cg);
@@ -162,10 +205,17 @@ Expression MorphLM::BuildGraph(const Sentence& sentence, ComputationGraph& cg) {
     inputs.push_back(input_embedding);
   }
 
-  vector<Expression> losses;
+  vector<Expression> context_vectors(inputs.size());
   main_lstm.start_new_sequence(main_lstm_init_v);
   for (unsigned i = 0; i < inputs.size(); ++i) {
     Expression context = main_lstm.back();
+    context_vectors[i] = context;
+    main_lstm.add_input(inputs[i]);
+  }
+
+  vector<Expression> losses;
+  for (unsigned i = 0; i < inputs.size(); ++i) {
+    Expression& context = context_vectors[i];
     Expression mode_log_probs = log_softmax(model_chooser.Feed(context));
     if (i == inputs.size() - 1) {
       assert (sentence.words[i] == 2); // </s>
@@ -207,7 +257,6 @@ Expression MorphLM::BuildGraph(const Sentence& sentence, ComputationGraph& cg) {
     Expression total_loss = -logsumexp(mode_losses);
 
     losses.push_back(total_loss);
-    main_lstm.add_input(inputs[i]);
   }
 
   assert (losses.size() == sentence.size());
